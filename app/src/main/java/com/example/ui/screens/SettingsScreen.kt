@@ -214,15 +214,65 @@ fun SettingsScreen(
                                 Button(
                                     onClick = {
                                         val url = updateState.apkDownloadUrl ?: updateState.releaseUrl
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                        context.startActivity(intent)
+                                        if (url.startsWith("http")) {
+                                            viewModel.downloadAndInstallApk(context, url)
+                                        } else {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                            context.startActivity(intent)
+                                        }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                 ) {
-                                    Icon(Icons.Default.OpenInNew, contentDescription = null)
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Скачать и установить обновление APK")
+                                }
+                            }
+                        }
+                    }
+
+                    is UpdateCheckResult.Downloading -> {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Скачивание обновления APK: ${updateState.progressPercent}%",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    is UpdateCheckResult.ReadyToInstall -> {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = PosSuccess.copy(alpha = 0.15f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = PosSuccess)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Файл APK закружен. Запуск установки...",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = PosSuccess,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }

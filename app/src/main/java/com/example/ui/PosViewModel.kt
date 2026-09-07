@@ -64,7 +64,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     private val _cartDiscount = MutableStateFlow(0.0)
     val cartDiscount: StateFlow<Double> = _cartDiscount.asStateFlow()
 
-    private val _githubRepoSlug = MutableStateFlow("terminal-pos/android-app")
+    private val _githubRepoSlug = MutableStateFlow("Fazer000/SaleFlow")
     val githubRepoSlug: StateFlow<String> = _githubRepoSlug.asStateFlow()
 
     private val _updateState = MutableStateFlow<UpdateCheckResult>(UpdateCheckResult.Idle)
@@ -94,7 +94,10 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                     p.sku.contains(query, ignoreCase = true)
             val matchesCat = cat == "Все" || p.category.equals(cat, ignoreCase = true)
             matchesQuery && matchesCat
-        }
+        }.sortedWith(
+            compareByDescending<ProductEntity> { it.currentStock > 0 }
+                .thenBy { it.name }
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val availableCategories: StateFlow<List<String>> = allProducts.map { products ->
@@ -186,11 +189,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun processCheckout(paymentMethod: String) {
-        val activeShift = currentShift.value
-        if (activeShift == null) {
-            _messageEvent.value = "Откройте смену перед проведением продажи!"
-            return
-        }
         val items = _cart.value
         if (items.isEmpty()) {
             _messageEvent.value = "Корзина пуста!"
@@ -199,11 +197,12 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
+                val activeShiftId = currentShift.value?.id ?: repository.openShift(0.0)
                 val txId = repository.processSale(
                     items = items,
                     paymentMethod = paymentMethod,
                     discountAmount = _cartDiscount.value,
-                    shiftId = activeShift.id
+                    shiftId = activeShiftId
                 )
                 val tx = db.transactionDao().getTransactionById(txId)
                 val txItems = db.transactionDao().getItemsForTransactionSync(txId)
@@ -212,7 +211,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                 _lastSaleItems.value = txItems
                 clearCart()
 
-                loadShiftReport(activeShift.id)
+                loadShiftReport(activeShiftId)
                 _messageEvent.value = "Продажа успешно проведена!"
             } catch (e: Exception) {
                 _messageEvent.value = "Ошибка продажи: ${e.localizedMessage}"
@@ -279,11 +278,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         originalTransaction: TransactionEntity,
         itemsToReturn: List<TransactionItemEntity>
     ) {
-        val activeShift = currentShift.value
-        if (activeShift == null) {
-            _messageEvent.value = "Откройте смену для проведения возврата!"
-            return
-        }
         if (itemsToReturn.isEmpty()) {
             _messageEvent.value = "Выберите товары для возврата!"
             return
@@ -291,13 +285,14 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
+                val activeShiftId = currentShift.value?.id ?: repository.openShift(0.0)
                 repository.processReturn(
                     originalTransactionId = originalTransaction.id,
                     returnedItems = itemsToReturn,
                     paymentMethod = originalTransaction.paymentMethod,
-                    shiftId = activeShift.id
+                    shiftId = activeShiftId
                 )
-                loadShiftReport(activeShift.id)
+                loadShiftReport(activeShiftId)
                 _messageEvent.value = "Возврат успешно оформлен, остатки обновлены!"
             } catch (e: Exception) {
                 _messageEvent.value = "Ошибка при возврате: ${e.localizedMessage}"
@@ -334,6 +329,21 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             _updateState.value = UpdateCheckResult.Checking
             val result = updateManager.checkForUpdates(_githubRepoSlug.value, currentAppVersionName)
             _updateState.value = result
+        }
+    }
+
+    fun downloadAndInstallApk(context: android.content.Context, apkUrl: String) {
+        viewModelScope.launch {
+            try {
+                _updateState.value = UpdateCheckResult.Downloading(0)
+                val apkFile = updateManager.downloadApk(context, apkUrl) { progress ->
+                    _updateState.value = UpdateCheckResult.Downloading(progress)
+                }
+                _updateState.value = UpdateCheckResult.ReadyToInstall(apkFile)
+                updateManager.installApk(context, apkFile)
+            } catch (e: Exception) {
+                _updateState.value = UpdateCheckResult.Error("Ошибка скачивания: ${e.localizedMessage}")
+            }
         }
     }
 

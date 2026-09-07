@@ -134,7 +134,7 @@ fun TerminalScreen(
                         .fillMaxHeight()
                         .padding(12.dp)
                 ) {
-                    HeaderStatusBanner(currentShift = currentShift)
+                    HeaderStatusBanner()
                     Spacer(modifier = Modifier.height(8.dp))
                     CatalogSection(
                         products = products,
@@ -178,7 +178,7 @@ fun TerminalScreen(
                         .fillMaxSize()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    HeaderStatusBanner(currentShift = currentShift)
+                    HeaderStatusBanner()
                     Spacer(modifier = Modifier.height(8.dp))
                     CatalogSection(
                         products = products,
@@ -361,33 +361,23 @@ fun TerminalScreen(
                     Text("Выберите способ оплаты:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FullPaymentOptionCard(
-                                title = "Наличные",
-                                icon = Icons.Default.Money,
-                                isSelected = selectedPaymentMethod == "CASH",
-                                modifier = Modifier.weight(1f),
-                                onClick = { selectedPaymentMethod = "CASH" }
-                            )
-                            FullPaymentOptionCard(
-                                title = "Банковская Карта",
-                                icon = Icons.Default.CreditCard,
-                                isSelected = selectedPaymentMethod == "CARD",
-                                modifier = Modifier.weight(1f),
-                                onClick = { selectedPaymentMethod = "CARD" }
-                            )
-                        }
-
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         FullPaymentOptionCard(
-                            title = "СБП / Оплата по QR-коду",
-                            icon = Icons.Default.QrCode,
-                            isSelected = selectedPaymentMethod == "QR",
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { selectedPaymentMethod = "QR" }
+                            title = "Наличные",
+                            icon = Icons.Default.Money,
+                            isSelected = selectedPaymentMethod == "CASH",
+                            modifier = Modifier.weight(1f),
+                            onClick = { selectedPaymentMethod = "CASH" }
+                        )
+                        FullPaymentOptionCard(
+                            title = "Перевод",
+                            icon = Icons.Default.CreditCard,
+                            isSelected = selectedPaymentMethod == "CARD",
+                            modifier = Modifier.weight(1f),
+                            onClick = { selectedPaymentMethod = "CARD" }
                         )
                     }
 
@@ -467,7 +457,7 @@ fun TerminalScreen(
 }
 
 @Composable
-fun HeaderStatusBanner(currentShift: ShiftEntity?) {
+fun HeaderStatusBanner() {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -492,11 +482,11 @@ fun HeaderStatusBanner(currentShift: ShiftEntity?) {
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(if (currentShift != null) PosSuccess else MaterialTheme.colorScheme.error)
+                            .background(PosSuccess)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (currentShift != null) "Смена №${currentShift.shiftNumber} (Открыта)" else "Смена не открыта",
+                        text = "Касса готова к работе",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -505,13 +495,13 @@ fun HeaderStatusBanner(currentShift: ShiftEntity?) {
 
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = if (currentShift != null) PosSuccess.copy(alpha = 0.15f) else MaterialTheme.colorScheme.errorContainer
+                color = PosSuccess.copy(alpha = 0.15f)
             ) {
                 Text(
-                    text = if (currentShift != null) "В РАБОТЕ" else "ЗАКРЫТО",
+                    text = "ОНЛАЙН",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.ExtraBold,
-                    color = if (currentShift != null) PosSuccess else MaterialTheme.colorScheme.error,
+                    color = PosSuccess,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
@@ -945,29 +935,20 @@ fun CartCheckoutPane(
             Text("Способ оплаты:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    FullPaymentOptionCard(
-                        title = "Наличные",
-                        icon = Icons.Default.Money,
-                        isSelected = selectedPaymentMethod == "CASH",
-                        modifier = Modifier.weight(1f),
-                        onClick = { onPaymentMethodSelect("CASH") }
-                    )
-                    FullPaymentOptionCard(
-                        title = "Карта",
-                        icon = Icons.Default.CreditCard,
-                        isSelected = selectedPaymentMethod == "CARD",
-                        modifier = Modifier.weight(1f),
-                        onClick = { onPaymentMethodSelect("CARD") }
-                    )
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 FullPaymentOptionCard(
-                    title = "СБП/QR",
-                    icon = Icons.Default.QrCode,
-                    isSelected = selectedPaymentMethod == "QR",
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { onPaymentMethodSelect("QR") }
+                    title = "Наличные",
+                    icon = Icons.Default.Money,
+                    isSelected = selectedPaymentMethod == "CASH",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onPaymentMethodSelect("CASH") }
+                )
+                FullPaymentOptionCard(
+                    title = "Перевод",
+                    icon = Icons.Default.CreditCard,
+                    isSelected = selectedPaymentMethod == "CARD",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onPaymentMethodSelect("CARD") }
                 )
             }
 

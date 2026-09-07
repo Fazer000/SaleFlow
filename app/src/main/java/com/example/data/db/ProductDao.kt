@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProductDao {
-    @Query("SELECT * FROM products ORDER BY name ASC")
+    @Query("SELECT * FROM products ORDER BY CASE WHEN currentStock > 0 THEN 0 ELSE 1 END, name ASC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 
     @Query("SELECT * FROM products WHERE id = :id")

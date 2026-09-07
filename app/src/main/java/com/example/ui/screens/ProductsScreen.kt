@@ -35,7 +35,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +49,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -348,8 +352,14 @@ fun ProductsScreen(
 
         // Add / Edit Product Modal Dialog
         if (showAddEditModal) {
+            val categories by viewModel.availableCategories.collectAsState()
+            val filteredCategories = remember(categories) {
+                categories.filter { it != "Все" }
+            }
+
             AddEditProductDialog(
                 productToEdit = editingProduct,
+                existingCategories = filteredCategories,
                 onDismiss = { showAddEditModal = false },
                 onSave = { product ->
                     viewModel.saveProduct(product)
@@ -407,22 +417,11 @@ fun ProductDetailRow(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = product.category,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (product.sku.isNotBlank()) {
-                            Text(
-                                text = " • ${product.sku}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+                    Text(
+                        text = product.category,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
@@ -516,15 +515,17 @@ fun ProductDetailRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditProductDialog(
     productToEdit: ProductEntity?,
+    existingCategories: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (ProductEntity) -> Unit
 ) {
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
-    var sku by remember { mutableStateOf(productToEdit?.sku ?: "") }
     var category by remember { mutableStateOf(productToEdit?.category ?: "Общее") }
+    var categoryExpanded by remember { mutableStateOf(false) }
     var costPriceStr by remember { mutableStateOf(productToEdit?.costPrice?.toInt()?.toString() ?: "") }
     var sellingPriceStr by remember { mutableStateOf(productToEdit?.sellingPrice?.toInt()?.toString() ?: "") }
     var currentStockStr by remember { mutableStateOf(productToEdit?.currentStock?.toInt()?.toString() ?: "0") }
@@ -550,21 +551,49 @@ fun AddEditProductDialog(
                         .testTag("product_name_input")
                 )
 
-                OutlinedTextField(
-                    value = category,
-                    onValueChange = { category = it },
-                    label = { Text("Категория") },
-                    singleLine = true,
+                // Category Dropdown with Custom Input Support
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { categoryExpanded = !categoryExpanded },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = {
+                            category = it
+                            categoryExpanded = true
+                        },
+                        label = { Text("Категория (выберите или введите новую)") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        singleLine = true,
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
 
-                OutlinedTextField(
-                    value = sku,
-                    onValueChange = { sku = it },
-                    label = { Text("Штрихкод / Артикул") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    val filtered = remember(existingCategories, category) {
+                        if (category.isBlank()) existingCategories
+                        else existingCategories.filter { it.contains(category, ignoreCase = true) }
+                    }
+
+                    if (filtered.isNotEmpty()) {
+                        ExposedDropdownMenu(
+                            expanded = categoryExpanded,
+                            onDismissRequest = { categoryExpanded = false }
+                        ) {
+                            filtered.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat) },
+                                    onClick = {
+                                        category = cat
+                                        categoryExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedTextField(
@@ -617,16 +646,16 @@ fun AddEditProductDialog(
 
                     val product = productToEdit?.copy(
                         name = name,
-                        sku = sku,
-                        category = category,
+                        sku = "",
+                        category = category.ifBlank { "Общее" },
                         costPrice = cost,
                         sellingPrice = selling,
                         currentStock = stock,
                         unit = unit
                     ) ?: ProductEntity(
                         name = name,
-                        sku = sku,
-                        category = category,
+                        sku = "",
+                        category = category.ifBlank { "Общее" },
                         costPrice = cost,
                         sellingPrice = selling,
                         currentStock = stock,

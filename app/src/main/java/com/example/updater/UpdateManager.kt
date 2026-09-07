@@ -1,11 +1,22 @@
 package com.example.updater
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Environment
+import androidx.core.content.FileProvider
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 sealed class UpdateCheckResult {
@@ -17,21 +28,24 @@ sealed class UpdateCheckResult {
         val releaseUrl: String,
         val apkDownloadUrl: String?
     ) : UpdateCheckResult()
+    data class Downloading(val progressPercent: Int) : UpdateCheckResult()
+    data class ReadyToInstall(val apkFile: File) : UpdateCheckResult()
     data class UpToDate(val currentVersion: String) : UpdateCheckResult()
     data class Error(val message: String) : UpdateCheckResult()
 }
 
 class UpdateManager {
     private val service: GitHubUpdateService
+    private val okHttpClient: OkHttpClient
 
     init {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
-        val okHttpClient = OkHttpClient.Builder()
+        okHttpClient = OkHttpClient.Builder()
             .addInterceptor(logging)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
         val moshi = Moshi.Builder()
@@ -48,7 +62,7 @@ class UpdateManager {
     }
 
     suspend fun checkForUpdates(
-        repoSlug: String, // e.g. "myorg/posterminal" or "user/repo"
+        repoSlug: String, // e.g. "Fazer000/SaleFlow"
         currentVersion: String
     ): UpdateCheckResult {
         return try {
@@ -77,6 +91,56 @@ class UpdateManager {
         } catch (e: Exception) {
             UpdateCheckResult.Error("Ошибка проверки обновлений: ${e.localizedMessage ?: "Неизвестная ошибка"}")
         }
+    }
+
+    suspend fun downloadApk(
+        context: Context,
+        downloadUrl: String,
+        onProgress: (Int) -> Unit
+    ): File = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(downloadUrl).build()
+        val response = okHttpClient.newCall(request).execute()
+        if (!response.isSuccessful) throw IOException("Ошибка скачивания: HTTP ${response.code}")
+        val body = response.body ?: throw IOException("Пустое тело ответа сервера")
+
+        val downloadsDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
+        val outputFile = File(downloadsDir, "saleflow-update.apk")
+        if (outputFile.exists()) {
+            outputFile.delete()
+        }
+
+        val totalBytes = body.contentLength()
+        var downloadedBytes = 0L
+
+        body.byteStream().use { inputStream ->
+            FileOutputStream(outputFile).use { outputStream ->
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    outputStream.write(buffer, 0, bytesRead)
+                    downloadedBytes += bytesRead
+                    if (totalBytes > 0) {
+                        val progress = ((downloadedBytes * 100) / totalBytes).toInt()
+                        onProgress(progress)
+                    }
+                }
+            }
+        }
+        outputFile
+    }
+
+    fun installApk(context: Context, apkFile: File) {
+        val apkUri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            apkFile
+        )
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
     }
 
     private fun isVersionNewer(latest: String, current: String): Boolean {
