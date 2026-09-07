@@ -1,0 +1,59 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    name: Build & Release Android App
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --stacktrace
+        env:
+          KEYSTORE_PATH: "${{ github.workspace }}/my-upload-key.jks"
+          STORE_PASSWORD: "storepassword123"
+          KEY_ALIAS: "upload"
+          KEY_PASSWORD: "storepassword123"
+
+      - name: Generate Release Tag
+        id: tag
+        run: |
+          VERSION_TAG="v1.0.${{ github.run_number }}"
+          echo "tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+          echo "Created tag: $VERSION_TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "POS Terminal Release ${{ steps.tag.outputs.tag }}"
+          body: |
+            Automated Build Release for POS Terminal Application.
+            
+            - Built automatically on push to main branch.
+            - Includes signed release APK.
+          draft: false
+          prerelease: false
+          files: app/build/outputs/apk/release/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
