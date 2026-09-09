@@ -10,7 +10,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -40,21 +39,33 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PosPrimaryContainer,
-    onPrimary = PosOnPrimaryContainer,
-    primaryContainer = PosPrimary,
-    onPrimaryContainer = PosPrimaryContainer,
-    secondary = PosSecondaryContainer,
-    onSecondary = PosOnSecondaryContainer,
-    background = PosOnBackground,
-    onBackground = PosBackground,
-    surface = PosOnSurface,
-    onSurface = PosSurface
+    primary = PosPrimaryDark,
+    onPrimary = PosOnPrimaryDark,
+    primaryContainer = PosPrimaryContainerDark,
+    onPrimaryContainer = PosOnPrimaryContainerDark,
+    secondary = PosSecondaryDark,
+    onSecondary = PosOnSecondaryDark,
+    secondaryContainer = PosSecondaryContainerDark,
+    onSecondaryContainer = PosOnSecondaryContainerDark,
+    tertiary = PosTertiaryDark,
+    onTertiary = PosOnTertiaryDark,
+    tertiaryContainer = PosTertiaryContainerDark,
+    onTertiaryContainer = PosOnTertiaryContainerDark,
+    background = PosBackgroundDark,
+    onBackground = PosOnBackgroundDark,
+    surface = PosSurfaceDark,
+    onSurface = PosOnSurfaceDark,
+    surfaceVariant = PosSurfaceVariantDark,
+    onSurfaceVariant = PosOnSurfaceVariantDark,
+    outline = PosOutlineDark,
+    error = PosErrorDark,
+    errorContainer = PosErrorContainerDark,
+    onErrorContainer = PosOnErrorContainerDark
 )
 
 @Composable
 fun PosTerminalTheme(
-    darkTheme: Boolean = false, // Enforce crisp light theme requested by user by default
+    darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

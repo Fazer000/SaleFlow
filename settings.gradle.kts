@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "POSTerminal"
+rootProject.name = "SaleManager"
 
 include(":app")

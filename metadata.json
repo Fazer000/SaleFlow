@@ -1,5 +1,5 @@
 {
-  "name": "POS Terminal",
+  "name": "Sale Manager",
   "description": "Приложение терминал продаж с учётом остатков, сменными отчётами и авто-обновлениями с GitHub.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

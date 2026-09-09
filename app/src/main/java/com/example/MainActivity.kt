@@ -62,19 +62,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            ),
-            navigationBarStyle = SystemBarStyle.light(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            )
-        )
+        enableEdgeToEdge()
 
         setContent {
-            PosTerminalTheme(darkTheme = false) { // Enforce Light M3 theme requested by user
+            val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
+            PosTerminalTheme(darkTheme = isDarkTheme) {
                 MainPosApp(viewModel = viewModel)
             }
         }

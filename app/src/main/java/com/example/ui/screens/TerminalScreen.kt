@@ -142,8 +142,6 @@ fun TerminalScreen(
                         .fillMaxHeight()
                         .padding(12.dp)
                 ) {
-                    HeaderStatusBanner()
-                    Spacer(modifier = Modifier.height(8.dp))
                     CatalogSection(
                         products = products,
                         categories = categories,
@@ -186,8 +184,6 @@ fun TerminalScreen(
                         .fillMaxSize()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    HeaderStatusBanner()
-                    Spacer(modifier = Modifier.height(8.dp))
                     CatalogSection(
                         products = products,
                         categories = categories,
@@ -464,59 +460,6 @@ fun TerminalScreen(
                     }
                 }
             )
-        }
-    }
-}
-
-@Composable
-fun HeaderStatusBanner() {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Кассовый Терминал",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(PosSuccess)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Касса готова к работе",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = PosSuccess.copy(alpha = 0.15f)
-            ) {
-                Text(
-                    text = "ОНЛАЙН",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = PosSuccess,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
         }
     }
 }
