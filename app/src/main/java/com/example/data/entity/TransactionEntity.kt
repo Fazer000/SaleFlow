@@ -14,5 +14,8 @@ data class TransactionEntity(
     val totalCostPrice: Double,
     val discountAmount: Double = 0.0,
     val timestamp: Long = System.currentTimeMillis(),
-    val relatedTransactionId: Long? = null // if RETURN, references original SALE transaction
+    val relatedTransactionId: Long? = null, // if RETURN, references original SALE transaction
+    val customerId: Long? = null,
+    val customerName: String? = null,
+    val isPaid: Boolean = true // true = Оплачено, false = В долг
 )

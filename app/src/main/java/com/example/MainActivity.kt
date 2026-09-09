@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.PosViewModel
+import com.example.ui.screens.CustomersScreen
 import com.example.ui.screens.ProductsScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.ShiftReportsScreen
@@ -49,6 +51,7 @@ enum class PosTab(val title: String, val icon: ImageVector) {
     TERMINAL("Касса", Icons.Default.PointOfSale),
     PRODUCTS("Товары", Icons.Default.Inventory),
     TRANSACTIONS("Чеки", Icons.Default.ReceiptLong),
+    CUSTOMERS("Клиенты", Icons.Default.People),
     REPORTS("Отчеты", Icons.Default.Assessment),
     SETTINGS("Настройки", Icons.Default.Settings)
 }
@@ -166,7 +169,7 @@ fun MainPosApp(viewModel: PosViewModel) {
                 PosTab.PRODUCTS -> {
                     ProductsScreen(
                         viewModel = viewModel,
-                        products = allProducts,
+                        products = products,
                         supplies = supplies,
                         searchQuery = searchQuery
                     )
@@ -176,6 +179,12 @@ fun MainPosApp(viewModel: PosViewModel) {
                     TransactionsScreen(
                         viewModel = viewModel,
                         transactions = transactions
+                    )
+                }
+
+                PosTab.CUSTOMERS -> {
+                    CustomersScreen(
+                        viewModel = viewModel
                     )
                 }
 

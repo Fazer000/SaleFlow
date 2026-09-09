@@ -1,9 +1,11 @@
 package com.example.data.repository
 
+import com.example.data.db.CustomerDao
 import com.example.data.db.ProductDao
 import com.example.data.db.ShiftDao
 import com.example.data.db.SupplyDao
 import com.example.data.db.TransactionDao
+import com.example.data.entity.CustomerEntity
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.ShiftEntity
 import com.example.data.entity.SupplyEntity
@@ -49,13 +51,28 @@ class PosRepository(
     private val productDao: ProductDao,
     private val supplyDao: SupplyDao,
     private val shiftDao: ShiftDao,
-    private val transactionDao: TransactionDao
+    private val transactionDao: TransactionDao,
+    private val customerDao: CustomerDao
 ) {
     val allProducts: Flow<List<ProductEntity>> = productDao.getAllProducts()
     val allSupplies: Flow<List<SupplyEntity>> = supplyDao.getAllSupplies()
     val allShifts: Flow<List<ShiftEntity>> = shiftDao.getAllShifts()
     val currentOpenShift: Flow<ShiftEntity?> = shiftDao.getCurrentOpenShift()
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
+    val allCustomers: Flow<List<CustomerEntity>> = customerDao.getAllCustomers()
+
+    // --- CUSTOMERS ---
+    suspend fun insertCustomer(customer: CustomerEntity): Long = withContext(Dispatchers.IO) {
+        customerDao.insertCustomer(customer)
+    }
+
+    suspend fun updateCustomer(customer: CustomerEntity) = withContext(Dispatchers.IO) {
+        customerDao.updateCustomer(customer)
+    }
+
+    suspend fun deleteCustomer(id: Long) = withContext(Dispatchers.IO) {
+        customerDao.deleteCustomerById(id)
+    }
 
     suspend fun getProductById(id: Long): ProductEntity? = withContext(Dispatchers.IO) {
         productDao.getProductById(id)
@@ -242,7 +259,10 @@ class PosRepository(
         items: List<CartItem>,
         paymentMethod: String,
         discountAmount: Double,
-        shiftId: Long
+        shiftId: Long,
+        customerId: Long? = null,
+        customerName: String? = null,
+        isPaid: Boolean = true
     ): Long = withContext(Dispatchers.IO) {
         val grossTotal = items.sumOf { it.totalPrice }
         val netTotal = (grossTotal - discountAmount).coerceAtLeast(0.0)
@@ -255,7 +275,10 @@ class PosRepository(
             totalAmount = netTotal,
             totalCostPrice = totalCost,
             discountAmount = discountAmount,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            customerId = customerId,
+            customerName = customerName,
+            isPaid = isPaid
         )
         val txId = transactionDao.insertTransaction(saleTx)
 
@@ -280,6 +303,10 @@ class PosRepository(
         transactionDao.insertTransactionItems(itemEntities)
 
         txId
+    }
+
+    suspend fun updateTransactionPaidStatus(transactionId: Long, isPaid: Boolean) = withContext(Dispatchers.IO) {
+        transactionDao.updatePaidStatus(transactionId, isPaid)
     }
 
     suspend fun processReturn(

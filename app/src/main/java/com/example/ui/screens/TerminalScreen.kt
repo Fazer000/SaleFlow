@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Discount
 import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -55,6 +57,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -66,10 +70,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,6 +93,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.entity.CustomerEntity
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.ShiftEntity
 import com.example.data.entity.TransactionEntity
@@ -355,7 +363,11 @@ fun TerminalScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    CustomerAndPaidSelector(viewModel = viewModel)
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Payment Method Selectors
                     Text("Выберите способ оплаты:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
@@ -596,9 +608,8 @@ fun CatalogSection(
                 columns = GridCells.Adaptive(minSize = 140.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = bottomPadding)
+                contentPadding = PaddingValues(top = 4.dp, bottom = bottomPadding + 24.dp),
+                modifier = Modifier.fillMaxSize()
             ) {
                 items(products, key = { it.id }) { product ->
                     SpaciousProductCard(
@@ -932,6 +943,10 @@ fun CartCheckoutPane(
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            CustomerAndPaidSelector(viewModel = viewModel)
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             Text("Способ оплаты:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -1053,4 +1068,125 @@ fun ReceiptSuccessDialog(
             }
         }
     )
+}
+
+@Composable
+fun CustomerAndPaidSelector(viewModel: PosViewModel) {
+    val customers by viewModel.allCustomers.collectAsState()
+    val selectedCustomer by viewModel.selectedCheckoutCustomer.collectAsState()
+    val isPaid by viewModel.checkoutIsPaid.collectAsState()
+
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            // Customer Selector Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
+                        Text("Покупатель:", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(
+                            text = selectedCustomer?.name ?: "Частный клиент",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Box {
+                    TextButton(onClick = { expanded = true }) {
+                        Text("Выбрать", fontSize = 11.sp)
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Частный клиент (без имени)", fontWeight = FontWeight.Bold) },
+                            onClick = {
+                                viewModel.setSelectedCheckoutCustomer(null)
+                                expanded = false
+                            }
+                        )
+                        Divider()
+                        customers.forEach { customer: CustomerEntity ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(customer.name, fontWeight = FontWeight.SemiBold)
+                                        if (customer.phone.isNotEmpty()) {
+                                            Text(customer.phone, fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    viewModel.setSelectedCheckoutCustomer(customer)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Divider()
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Switch Оплачено
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(if (isPaid) PosSuccess else MaterialTheme.colorScheme.error)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isPaid) "Оплачено" else "Оформление в долг",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isPaid) PosSuccess else MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Switch(
+                    checked = isPaid,
+                    onCheckedChange = { viewModel.setCheckoutIsPaid(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = PosSuccess,
+                        checkedTrackColor = PosSuccess.copy(alpha = 0.3f),
+                        uncheckedThumbColor = MaterialTheme.colorScheme.error,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                )
+            }
+        }
+    }
 }

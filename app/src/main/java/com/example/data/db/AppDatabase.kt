@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.data.entity.CustomerEntity
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.ShiftEntity
 import com.example.data.entity.SupplyEntity
@@ -16,9 +17,10 @@ import com.example.data.entity.TransactionItemEntity
         SupplyEntity::class,
         ShiftEntity::class,
         TransactionEntity::class,
-        TransactionItemEntity::class
+        TransactionItemEntity::class,
+        CustomerEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun supplyDao(): SupplyDao
     abstract fun shiftDao(): ShiftDao
     abstract fun transactionDao(): TransactionDao
+    abstract fun customerDao(): CustomerDao
 
     companion object {
         @Volatile

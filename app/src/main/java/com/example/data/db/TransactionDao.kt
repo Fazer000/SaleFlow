@@ -19,6 +19,12 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE shiftId = :shiftId")
     suspend fun getTransactionsForShiftSync(shiftId: Long): List<TransactionEntity>
 
+    @Query("SELECT * FROM transactions WHERE customerId = :customerId ORDER BY timestamp DESC")
+    fun getTransactionsForCustomer(customerId: Long): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE customerId = :customerId")
+    suspend fun getTransactionsForCustomerSync(customerId: Long): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: Long): TransactionEntity?
 
@@ -33,4 +39,7 @@ interface TransactionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransactionItems(items: List<TransactionItemEntity>)
+
+    @Query("UPDATE transactions SET isPaid = :isPaid WHERE id = :transactionId")
+    suspend fun updatePaidStatus(transactionId: Long, isPaid: Boolean)
 }

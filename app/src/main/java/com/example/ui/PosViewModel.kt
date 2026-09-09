@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.AppDatabase
+import com.example.data.entity.CustomerEntity
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.ShiftEntity
 import com.example.data.entity.SupplyEntity
@@ -30,7 +31,8 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         productDao = db.productDao(),
         supplyDao = db.supplyDao(),
         shiftDao = db.shiftDao(),
-        transactionDao = db.transactionDao()
+        transactionDao = db.transactionDao(),
+        customerDao = db.customerDao()
     )
 
     private val updateManager = UpdateManager()
@@ -50,6 +52,51 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     val allTransactions: StateFlow<List<TransactionEntity>> = repository.allTransactions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allCustomers: StateFlow<List<CustomerEntity>> = repository.allCustomers
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    data class CustomerWithStats(
+        val customer: CustomerEntity,
+        val totalPurchased: Double,
+        val totalDebt: Double,
+        val totalPaid: Double,
+        val transactionCount: Int,
+        val unpaidCount: Int
+    )
+
+    val customerStats: StateFlow<List<CustomerWithStats>> = combine(
+        allCustomers,
+        allTransactions
+    ) { customers, transactions ->
+        customers.map { customer ->
+            val customerTxs = transactions.filter { it.customerId == customer.id }
+            val sales = customerTxs.filter { it.type == "SALE" }
+            val returns = customerTxs.filter { it.type == "RETURN" }
+            val totalSales = sales.sumOf { it.totalAmount }
+            val totalReturns = returns.sumOf { it.totalAmount }
+            val totalPurchased = (totalSales - totalReturns).coerceAtLeast(0.0)
+
+            val unpaidSales = sales.filter { !it.isPaid }
+            val totalDebt = unpaidSales.sumOf { it.totalAmount }
+            val totalPaid = (totalPurchased - totalDebt).coerceAtLeast(0.0)
+
+            CustomerWithStats(
+                customer = customer,
+                totalPurchased = totalPurchased,
+                totalDebt = totalDebt,
+                totalPaid = totalPaid,
+                transactionCount = sales.size,
+                unpaidCount = unpaidSales.size
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedCheckoutCustomer = MutableStateFlow<CustomerEntity?>(null)
+    val selectedCheckoutCustomer: StateFlow<CustomerEntity?> = _selectedCheckoutCustomer.asStateFlow()
+
+    private val _checkoutIsPaid = MutableStateFlow(true)
+    val checkoutIsPaid: StateFlow<Boolean> = _checkoutIsPaid.asStateFlow()
 
     // UI state
     private val _searchQuery = MutableStateFlow("")
@@ -179,6 +226,46 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setSelectedCheckoutCustomer(customer: CustomerEntity?) {
+        _selectedCheckoutCustomer.value = customer
+    }
+
+    fun setCheckoutIsPaid(isPaid: Boolean) {
+        _checkoutIsPaid.value = isPaid
+    }
+
+    fun addCustomer(name: String, phone: String = "", note: String = "") {
+        if (name.isBlank()) {
+            _messageEvent.value = "Введите имя покупателя"
+            return
+        }
+        viewModelScope.launch {
+            repository.insertCustomer(CustomerEntity(name = name.trim(), phone = phone.trim(), note = note.trim()))
+            _messageEvent.value = "Покупатель добавлен"
+        }
+    }
+
+    fun deleteCustomer(id: Long) {
+        viewModelScope.launch {
+            repository.deleteCustomer(id)
+            if (_selectedCheckoutCustomer.value?.id == id) {
+                _selectedCheckoutCustomer.value = null
+            }
+            _messageEvent.value = "Покупатель удален"
+        }
+    }
+
+    fun toggleTransactionPaidStatus(transactionId: Long, isPaid: Boolean) {
+        viewModelScope.launch {
+            repository.updateTransactionPaidStatus(transactionId, isPaid)
+            val shift = currentShift.value
+            if (shift != null) {
+                loadShiftReport(shift.id)
+            }
+            _messageEvent.value = if (isPaid) "Чек отмечен как оплаченный" else "Чек отмечен как неоплаченный (в долг)"
+        }
+    }
+
     fun setCartDiscount(discount: Double) {
         _cartDiscount.value = discount.coerceAtLeast(0.0)
     }
@@ -188,7 +275,11 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         _cartDiscount.value = 0.0
     }
 
-    fun processCheckout(paymentMethod: String) {
+    fun processCheckout(
+        paymentMethod: String,
+        customer: CustomerEntity? = _selectedCheckoutCustomer.value,
+        isPaid: Boolean = _checkoutIsPaid.value
+    ) {
         val items = _cart.value
         if (items.isEmpty()) {
             _messageEvent.value = "Корзина пуста!"
@@ -202,7 +293,10 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                     items = items,
                     paymentMethod = paymentMethod,
                     discountAmount = _cartDiscount.value,
-                    shiftId = activeShiftId
+                    shiftId = activeShiftId,
+                    customerId = customer?.id,
+                    customerName = customer?.name,
+                    isPaid = isPaid
                 )
                 val tx = db.transactionDao().getTransactionById(txId)
                 val txItems = db.transactionDao().getItemsForTransactionSync(txId)
@@ -210,9 +304,11 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                 _lastSaleReceipt.value = tx
                 _lastSaleItems.value = txItems
                 clearCart()
+                _selectedCheckoutCustomer.value = null
+                _checkoutIsPaid.value = true
 
                 loadShiftReport(activeShiftId)
-                _messageEvent.value = "Продажа успешно проведена!"
+                _messageEvent.value = if (isPaid) "Продажа успешно проведена!" else "Продажа оформлена в долг!"
             } catch (e: Exception) {
                 _messageEvent.value = "Ошибка продажи: ${e.localizedMessage}"
             }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
@@ -39,6 +41,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -84,12 +88,14 @@ fun TransactionsScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             // Header Section
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
                 Text(
                     text = "История чеков и продаж",
                     style = MaterialTheme.typography.titleMedium,
@@ -132,8 +138,6 @@ fun TransactionsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             if (filteredTransactions.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -164,6 +168,7 @@ fun TransactionsScreen(
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredTransactions, key = { it.id }) { tx ->
@@ -263,6 +268,60 @@ fun TransactionCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            // Customer & Paid Status Row
+            if (transaction.customerName != null || isSale) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = transaction.customerName ?: "Частный клиент",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (isSale) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (transaction.isPaid) "Оплачен" else "В долг",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (transaction.isPaid) PosSuccess else MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                            Switch(
+                                checked = transaction.isPaid,
+                                onCheckedChange = { isChecked ->
+                                    viewModel.toggleTransactionPaidStatus(transaction.id, isChecked)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = PosSuccess,
+                                    checkedTrackColor = PosSuccess.copy(alpha = 0.3f),
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.error,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
