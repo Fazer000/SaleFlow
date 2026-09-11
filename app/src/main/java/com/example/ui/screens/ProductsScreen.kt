@@ -29,8 +29,10 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -86,6 +88,9 @@ fun ProductsScreen(
 
     var showIntakeModal by remember { mutableStateOf(false) }
     var intakeProduct by remember { mutableStateOf<ProductEntity?>(null) }
+
+    var showShowcaseModal by remember { mutableStateOf(false) }
+    var showcaseProduct by remember { mutableStateOf<ProductEntity?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -147,6 +152,24 @@ fun ProductsScreen(
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp)
                             )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            OutlinedButton(
+                                onClick = {
+                                    showcaseProduct = null
+                                    showShowcaseModal = true
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                modifier = Modifier
+                                    .height(50.dp)
+                                    .testTag("stock_showcase_button"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Image, contentDescription = "Витрина", modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text("Витрина", fontSize = 12.sp)
+                            }
 
                             Spacer(modifier = Modifier.width(6.dp))
 
@@ -232,6 +255,10 @@ fun ProductsScreen(
                                     onStockIntake = {
                                         intakeProduct = product
                                         showIntakeModal = true
+                                    },
+                                    onShareCard = {
+                                        showcaseProduct = product
+                                        showShowcaseModal = true
                                     },
                                     onDelete = {
                                         viewModel.deleteProduct(product)
@@ -411,6 +438,15 @@ fun ProductsScreen(
                 }
             )
         }
+
+        // Showcase Modal Dialog for Customers
+        if (showShowcaseModal) {
+            StockShowcaseDialog(
+                products = products,
+                initialProduct = showcaseProduct,
+                onDismiss = { showShowcaseModal = false }
+            )
+        }
     }
 }
 
@@ -419,6 +455,7 @@ fun ProductDetailRow(
     product: ProductEntity,
     onEdit: () -> Unit,
     onStockIntake: () -> Unit,
+    onShareCard: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -513,27 +550,38 @@ fun ProductDetailRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OutlinedButton(
+                    onClick = onShareCard,
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text("Карточка", fontSize = 11.sp)
+                }
+
+                OutlinedButton(
                     onClick = onEdit,
                     modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(13.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
                     Text("Изменить", fontSize = 11.sp)
                 }
 
                 Button(
                     onClick = onStockIntake,
                     modifier = Modifier
-                        .weight(1.2f)
+                        .weight(1.1f)
                         .height(36.dp)
                         .testTag("intake_button_${product.id}"),
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.AddShoppingCart, contentDescription = null, modifier = Modifier.size(13.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
                     Text("+ Приход", fontSize = 11.sp)
                 }
             }
