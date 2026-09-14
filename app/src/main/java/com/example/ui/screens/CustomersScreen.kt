@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,6 +52,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,8 +70,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.entity.TransactionEntity
+import com.example.data.entity.TransactionItemEntity
 import com.example.ui.PosViewModel
 import com.example.ui.theme.PosSuccess
 import java.text.SimpleDateFormat
@@ -358,133 +362,132 @@ fun CustomersScreen(
         }
         val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
 
-        AlertDialog(
+        Dialog(
             onDismissRequest = { selectedCustomerForDetails = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .padding(vertical = 12.dp),
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(item.customer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        if (item.customer.phone.isNotEmpty()) {
-                            Text(item.customer.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                        }
-                    }
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Summary Banner
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(vertical = 16.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Header (No close button)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                color = if (item.totalDebt > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) else PosSuccess.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("Всего покупок", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${item.totalPurchased.toInt()} ₽", fontWeight = FontWeight.Bold)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Задолженность", fontSize = 11.sp, color = if (item.totalDebt > 0) MaterialTheme.colorScheme.error else PosSuccess)
-                            Text(
-                                "${item.totalDebt.toInt()} ₽",
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (item.totalDebt > 0) MaterialTheme.colorScheme.error else PosSuccess
-                            )
-                        }
-                    }
-
-                    Text("История покупок (${customerTxs.size})", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-
-                    if (customerTxs.isEmpty()) {
-                        Text("У покупателя пока нет чеков", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    } else {
-                        LazyColumn(
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(260.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
                         ) {
-                            items(customerTxs, key = { it.id }) { tx ->
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(10.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                "Чек №${tx.id}  •  ${if (tx.type == "SALE") "Продажа" else "Возврат"}",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 12.sp
-                                            )
-                                            Text(
-                                                "${dateFormat.format(Date(tx.timestamp))}  (${tx.paymentMethod})",
-                                                fontSize = 10.sp,
-                                                color = MaterialTheme.colorScheme.outline
-                                            )
-                                            Text(
-                                                "${tx.totalAmount.toInt()} ₽",
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                fontSize = 13.sp
-                                            )
-                                        }
-
-                                        // Switch Оплачено
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                if (tx.isPaid) "Оплачен" else "В долг",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (tx.isPaid) PosSuccess else MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.padding(end = 4.dp)
-                                            )
-                                            Switch(
-                                                checked = tx.isPaid,
-                                                onCheckedChange = { isChecked ->
-                                                    viewModel.toggleTransactionPaidStatus(tx.id, isChecked)
-                                                },
-                                                colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = PosSuccess,
-                                                    checkedTrackColor = PosSuccess.copy(alpha = 0.3f),
-                                                    uncheckedThumbColor = MaterialTheme.colorScheme.error,
-                                                    uncheckedTrackColor = MaterialTheme.colorScheme.errorContainer
-                                                )
-                                            )
-                                        }
-                                    }
-                                }
+                            Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(item.customer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            if (item.customer.phone.isNotEmpty()) {
+                                Text(item.customer.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                             }
                         }
                     }
-                }
-            },
-            confirmButton = {
-                Button(onClick = { selectedCustomerForDetails = null }) {
-                    Text("Закрыть")
+
+                    // Summary Banner
+                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = if (item.totalDebt > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) else PosSuccess.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Всего покупок", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("${item.totalPurchased.toInt()} ₽", fontWeight = FontWeight.Bold)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Задолженность", fontSize = 11.sp, color = if (item.totalDebt > 0) MaterialTheme.colorScheme.error else PosSuccess)
+                                Text(
+                                    "${item.totalDebt.toInt()} ₽",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (item.totalDebt > 0) MaterialTheme.colorScheme.error else PosSuccess
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        "История покупок (${customerTxs.size})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (customerTxs.isEmpty()) {
+                        Text(
+                            "У покупателя пока нет чеков",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                        )
+                    } else {
+                        // Scrollable List going to the very bottom without bottom padding & with Top Shadow
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 280.dp)
+                        ) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 0.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                items(customerTxs, key = { it.id }) { tx ->
+                                    CustomerTransactionCard(
+                                        tx = tx,
+                                        viewModel = viewModel,
+                                        dateFormat = dateFormat
+                                    )
+                                }
+                            }
+
+                            // Top Shadow Overlay
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(10.dp)
+                                    .align(Alignment.TopCenter)
+                                    .background(
+                                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                            colors = listOf(
+                                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.12f),
+                                                androidx.compose.ui.graphics.Color.Transparent
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+                    }
                 }
             }
-        )
+        }
     }
 }
 
@@ -593,6 +596,151 @@ fun CustomerCard(
                         tint = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(18.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CustomerTransactionCard(
+    tx: TransactionEntity,
+    viewModel: PosViewModel,
+    dateFormat: SimpleDateFormat
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    var items by remember { mutableStateOf<List<TransactionItemEntity>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isExpanded) {
+        if (isExpanded && items.isEmpty()) {
+            isLoading = true
+            items = viewModel.getTransactionItems(tx.id)
+            isLoading = false
+        }
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Чек №${tx.id}  •  ${if (tx.type == "SALE") "Продажа" else "Возврат"}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isExpanded) "Свернуть" else "Развернуть",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        "${dateFormat.format(Date(tx.timestamp))}  (${tx.paymentMethod})",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Text(
+                        "${tx.totalAmount.toInt()} ₽",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 13.sp
+                    )
+                }
+
+                // Switch Оплачено
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (tx.isPaid) "Оплачен" else "В долг",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (tx.isPaid) PosSuccess else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                    Switch(
+                        checked = tx.isPaid,
+                        onCheckedChange = { isChecked ->
+                            viewModel.toggleTransactionPaidStatus(tx.id, isChecked)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = PosSuccess,
+                            checkedTrackColor = PosSuccess.copy(alpha = 0.3f),
+                            uncheckedThumbColor = MaterialTheme.colorScheme.error,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    )
+                }
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (isLoading) {
+                        Text(
+                            "Загрузка товаров...",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    } else if (items.isEmpty()) {
+                        Text(
+                            "Список товаров пуст",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    } else {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        ) {
+                            items.forEach { item ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        item.productName,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    val qtyStr = if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else item.quantity.toString()
+                                    val itemTotal = (item.quantity * item.unitPrice).toInt()
+                                    Text(
+                                        "$qtyStr ${item.unit} x ${item.unitPrice.toInt()} ₽ = $itemTotal ₽",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -160,10 +160,12 @@ fun ProductsScreen(
                 Column(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
                         // Search + Add Button Row
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             CustomSearchInput(
@@ -214,8 +216,9 @@ fun ProductsScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Category Filter Chips
+                        // Category Filter Chips - Edge-to-Edge Carousel
                         LazyRow(
+                            contentPadding = PaddingValues(horizontal = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {

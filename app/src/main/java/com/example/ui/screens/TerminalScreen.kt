@@ -219,7 +219,7 @@ fun TerminalScreen(
                     modifier = Modifier
                         .weight(1.3f)
                         .fillMaxHeight()
-                        .padding(12.dp)
+                        .padding(top = 12.dp, bottom = 12.dp)
                 ) {
                     CatalogSection(
                         products = products,
@@ -263,7 +263,7 @@ fun TerminalScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(top = 8.dp)
                 ) {
                     CatalogSection(
                         products = products,
@@ -586,7 +586,9 @@ fun CatalogSection(
     Column(modifier = Modifier.fillMaxSize()) {
         // Search Row with Settings Button
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -621,8 +623,9 @@ fun CatalogSection(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Categories Pills
+        // Categories Pills - Edge-to-Edge Carousel without outer padding bounds
         LazyRow(
+            contentPadding = PaddingValues(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -677,7 +680,7 @@ fun CatalogSection(
                     columns = GridCells.Adaptive(minSize = 140.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(top = 6.dp, bottom = bottomPadding + 24.dp),
+                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = bottomPadding + 24.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(products, key = { it.id }) { product ->
@@ -694,16 +697,16 @@ fun CatalogSection(
                     }
                 }
 
-                // Top Shadow Overlay
+                // Top Shadow Overlay spanning full screen width
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(10.dp)
+                        .height(12.dp)
                         .align(Alignment.TopCenter)
                         .background(
                             brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                                 colors = listOf(
-                                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.12f),
+                                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.14f),
                                     androidx.compose.ui.graphics.Color.Transparent
                                 )
                             )
@@ -1340,48 +1343,33 @@ fun CustomerSelectionDialog(
                 .padding(vertical = 16.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Header: Title & Close Button
+                // Header (No close button)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 12.dp, top = 16.dp, bottom = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            "Выбор покупателя",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Закрыть",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        "Выбор покупателя",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 // Search Input Field
@@ -1492,7 +1480,7 @@ fun CustomerSelectionDialog(
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 0.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         // Option 1: "Частный клиент (без привязки)"
