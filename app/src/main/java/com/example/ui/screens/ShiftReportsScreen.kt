@@ -18,10 +18,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Money
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +38,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +53,7 @@ import com.example.data.entity.ShiftEntity
 import com.example.data.repository.ShiftReportSummary
 import com.example.ui.PosViewModel
 import com.example.ui.theme.PosSuccess
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +63,8 @@ fun ShiftReportsScreen(
     shiftReport: ShiftReportSummary?,
     allShifts: List<ShiftEntity>
 ) {
+    val allTransactions by viewModel.allTransactions.collectAsState()
+
     LaunchedEffect(Unit) {
         if (currentShift == null) {
             viewModel.openShift(0.0)
@@ -61,6 +72,36 @@ fun ShiftReportsScreen(
             viewModel.loadShiftReport(currentShift.id)
         }
     }
+
+    // Daily analytics calculation
+    val todayStartMillis = remember {
+        Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+
+    val todayTransactions = remember(allTransactions, todayStartMillis) {
+        allTransactions.filter { it.timestamp >= todayStartMillis }
+    }
+
+    val todaySales = remember(todayTransactions) { todayTransactions.filter { it.type == "SALE" } }
+    val todayReturns = remember(todayTransactions) { todayTransactions.filter { it.type == "RETURN" } }
+
+    val todayGrossRevenue = remember(todaySales) { todaySales.sumOf { it.totalAmount } }
+    val todayReturnsAmount = remember(todayReturns) { todayReturns.sumOf { it.totalAmount } }
+    val todayNetRevenue = (todayGrossRevenue - todayReturnsAmount).coerceAtLeast(0.0)
+
+    val todaySalesCost = remember(todaySales) { todaySales.sumOf { it.totalCostPrice } }
+    val todayReturnsCost = remember(todayReturns) { todayReturns.sumOf { it.totalCostPrice } }
+    val todayNetCost = (todaySalesCost - todayReturnsCost).coerceAtLeast(0.0)
+
+    val todayProfit = todayNetRevenue - todayNetCost
+    val todayMarginPercent = if (todayNetRevenue > 0) (todayProfit / todayNetRevenue * 100.0) else 0.0
+    val todaySalesCount = todaySales.size
+    val todayAverageCheck = if (todaySalesCount > 0) todayNetRevenue / todaySalesCount else 0.0
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -123,14 +164,153 @@ fun ShiftReportsScreen(
                 }
             }
 
-            // Automated Report Section
-            if (shiftReport != null) {
-                item {
+            // Daily Profit Section Header
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Today,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Сводка по выручке и прибыли",
+                        text = "Прибыль и аналитика за сегодня",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+
+            // Hero Daily Profit Card
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Чистая прибыль за день",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${if (todayProfit >= 0) "+" else ""}${todayProfit.toInt()} ₽",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (todayProfit >= 0) PosSuccess else MaterialTheme.colorScheme.error
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = PosSuccess.copy(alpha = 0.12f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.TrendingUp,
+                                        contentDescription = null,
+                                        tint = PosSuccess,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Маржа ${todayMarginPercent.toInt()}%",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PosSuccess
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // 4 sub-metrics for today
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            DailyStatChip(
+                                label = "Выручка за день",
+                                value = "${todayNetRevenue.toInt()} ₽",
+                                icon = Icons.Default.MonetizationOn,
+                                iconTint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            DailyStatChip(
+                                label = "Себестоимость",
+                                value = "${todayNetCost.toInt()} ₽",
+                                icon = Icons.Default.ShoppingBag,
+                                iconTint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            DailyStatChip(
+                                label = "Чеков сегодня",
+                                value = "$todaySalesCount чеков",
+                                icon = Icons.Default.Receipt,
+                                iconTint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            DailyStatChip(
+                                label = "Средний чек",
+                                value = "${todayAverageCheck.toInt()} ₽",
+                                icon = Icons.Default.Calculate,
+                                iconTint = PosSuccess,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Automated Shift Report Section
+            if (shiftReport != null) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Текущая смена (Смена #${shiftReport.shift.id})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
                 // Metric Cards Grid
@@ -140,7 +320,7 @@ fun ShiftReportsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         MetricCard(
-                            title = "Выручка",
+                            title = "Выручка смены",
                             value = "${shiftReport.netSalesAmount.toInt()} ₽",
                             subtitle = "${shiftReport.totalSalesCount} продаж",
                             icon = Icons.Default.MonetizationOn,
@@ -148,7 +328,7 @@ fun ShiftReportsScreen(
                             modifier = Modifier.weight(1f)
                         )
                         MetricCard(
-                            title = "Прибыль",
+                            title = "Прибыль смены",
                             value = "${shiftReport.totalProfitAmount.toInt()} ₽",
                             subtitle = "Чистая",
                             icon = Icons.Default.TrendingUp,
@@ -195,7 +375,7 @@ fun ShiftReportsScreen(
                                 Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Топ проданных товаров",
+                                    text = "Топ проданных товаров в смене",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -297,6 +477,60 @@ fun ShiftReportsScreen(
 }
 
 @Composable
+fun DailyStatChip(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(iconTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun MetricCard(
     title: String,
     value: String,
@@ -347,3 +581,4 @@ fun MetricCard(
         }
     }
 }
+

@@ -727,10 +727,15 @@ fun SpaciousProductCard(
 
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = if (inStock) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            containerColor = if (inStock) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant
         ),
-        border = BorderStroke(1.dp, if (isInCart) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isInCart) 3.dp else 2.dp),
+        border = BorderStroke(
+            1.dp,
+            if (isInCart) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+            else if (!inStock) MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+            else Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isInCart) 3.dp else if (inStock) 2.dp else 0.dp),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -752,6 +757,7 @@ fun SpaciousProductCard(
                     text = product.name,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
+                    color = if (inStock) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                     minLines = 2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -787,13 +793,14 @@ fun SpaciousProductCard(
                     text = "${product.sellingPrice.toInt()} ₽",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = if (inStock) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                 )
                 Text(
-                    text = if (inStock) "${product.currentStock.toInt()} ${product.unit}" else "Нет в наличии",
+                    text = if (inStock) "${product.currentStock.toInt()} ${product.unit}" else "0 ${product.unit}",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (inStock) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error,
-                    fontSize = 10.sp
+                    fontSize = 10.sp,
+                    fontWeight = if (inStock) FontWeight.Normal else FontWeight.Bold
                 )
             }
 
@@ -869,7 +876,9 @@ fun SpaciousProductCard(
                     enabled = inStock,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        disabledContainerColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        disabledContentColor = MaterialTheme.colorScheme.outline
                     ),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp),
@@ -878,17 +887,25 @@ fun SpaciousProductCard(
                         .height(34.dp)
                         .testTag("product_add_button_${product.id}")
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Добавить",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (inStock) "В чек" else "Нет",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (inStock) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Добавить",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "В чек",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Text(
+                            text = "Нет в наличии",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
