@@ -12,6 +12,9 @@ interface SupplyDao {
     @Query("SELECT * FROM supplies ORDER BY timestamp DESC")
     fun getAllSupplies(): Flow<List<SupplyEntity>>
 
+    @Query("SELECT * FROM supplies")
+    suspend fun getAllSuppliesList(): List<SupplyEntity>
+
     @Query("SELECT * FROM supplies WHERE productId = :productId ORDER BY timestamp DESC")
     fun getSuppliesForProduct(productId: Long): Flow<List<SupplyEntity>>
 

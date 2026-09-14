@@ -19,6 +19,9 @@ interface ShiftDao {
     @Query("SELECT * FROM shifts ORDER BY id DESC")
     fun getAllShifts(): Flow<List<ShiftEntity>>
 
+    @Query("SELECT * FROM shifts")
+    suspend fun getAllShiftsList(): List<ShiftEntity>
+
     @Query("SELECT * FROM shifts WHERE id = :id")
     suspend fun getShiftById(id: Long): ShiftEntity?
 

@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,12 +15,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -61,12 +65,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.SupplyEntity
 import com.example.ui.PosViewModel
@@ -95,7 +103,31 @@ fun ProductsScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header Tabs
-            TabRow(selectedTabIndex = selectedTab) {
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.background,
+                divider = {},
+                indicator = { tabPositions ->
+                    if (selectedTab < tabPositions.size) {
+                        val currentTab = tabPositions[selectedTab]
+                        val currentTabWidth = currentTab.contentWidth
+                        val indicatorOffset = currentTab.left + (currentTab.width - currentTabWidth) / 2
+
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .wrapContentSize(Alignment.BottomStart)
+                                .offset(x = indicatorOffset)
+                                .width(currentTabWidth)
+                                .height(3.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
+                                )
+                        )
+                    }
+                }
+            ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
@@ -134,23 +166,13 @@ fun ProductsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedTextField(
+                            CustomSearchInput(
                                 value = searchQuery,
                                 onValueChange = { viewModel.setSearchQuery(it) },
+                                placeholderText = "Поиск по названию...",
                                 modifier = Modifier
                                     .weight(1f)
-                                    .testTag("product_search_input"),
-                                placeholder = { Text("Поиск по названию...", fontSize = 13.sp) },
-                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(18.dp)) },
-                                trailingIcon = {
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                            Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(18.dp))
-                                        }
-                                    }
-                                },
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp)
+                                    .testTag("product_search_input")
                             )
 
                             Spacer(modifier = Modifier.width(6.dp))
@@ -162,7 +184,7 @@ fun ProductsScreen(
                                 },
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                                 modifier = Modifier
-                                    .height(50.dp)
+                                    .height(48.dp)
                                     .testTag("stock_showcase_button"),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -180,7 +202,7 @@ fun ProductsScreen(
                                 },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                                 modifier = Modifier
-                                    .height(50.dp)
+                                    .height(48.dp)
                                     .testTag("add_product_button"),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -240,31 +262,49 @@ fun ProductsScreen(
                             }
                         }
                     } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(products, key = { it.id }) { product ->
-                                ProductDetailRow(
-                                    product = product,
-                                    onEdit = {
-                                        editingProduct = product
-                                        showAddEditModal = true
-                                    },
-                                    onStockIntake = {
-                                        intakeProduct = product
-                                        showIntakeModal = true
-                                    },
-                                    onShareCard = {
-                                        showcaseProduct = product
-                                        showShowcaseModal = true
-                                    },
-                                    onDelete = {
-                                        viewModel.deleteProduct(product)
-                                    }
-                                )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 24.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(products, key = { it.id }) { product ->
+                                    ProductDetailRow(
+                                        product = product,
+                                        onEdit = {
+                                            editingProduct = product
+                                            showAddEditModal = true
+                                        },
+                                        onStockIntake = {
+                                            intakeProduct = product
+                                            showIntakeModal = true
+                                        },
+                                        onShareCard = {
+                                            showcaseProduct = product
+                                            showShowcaseModal = true
+                                        },
+                                        onDelete = {
+                                            viewModel.deleteProduct(product)
+                                        }
+                                    )
+                                }
                             }
+
+                            // Top Shadow Overlay
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(10.dp)
+                                    .align(Alignment.TopCenter)
+                                    .background(
+                                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                            colors = listOf(
+                                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.12f),
+                                                androidx.compose.ui.graphics.Color.Transparent
+                                            )
+                                        )
+                                    )
+                            )
                         }
                     }
                 }
@@ -441,8 +481,9 @@ fun ProductsScreen(
 
         // Showcase Modal Dialog for Customers
         if (showShowcaseModal) {
+            val allProducts by viewModel.allProducts.collectAsState()
             StockShowcaseDialog(
-                products = products,
+                products = allProducts,
                 initialProduct = showcaseProduct,
                 onDismiss = { showShowcaseModal = false }
             )
@@ -598,7 +639,7 @@ fun AddEditProductDialog(
     onSave: (ProductEntity) -> Unit
 ) {
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
-    var category by remember { mutableStateOf(productToEdit?.category ?: "Общее") }
+    var category by remember { mutableStateOf(productToEdit?.category ?: "") }
     var categoryExpanded by remember { mutableStateOf(false) }
     var costPriceStr by remember { mutableStateOf(productToEdit?.costPrice?.toInt()?.toString() ?: "") }
     var sellingPriceStr by remember { mutableStateOf(productToEdit?.sellingPrice?.toInt()?.toString() ?: "") }
@@ -607,6 +648,10 @@ fun AddEditProductDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .padding(vertical = 12.dp),
         title = { Text(if (productToEdit == null) "Новый товар" else "Редактировать товар", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
         text = {
             Column(
@@ -637,7 +682,8 @@ fun AddEditProductDialog(
                             category = it
                             categoryExpanded = true
                         },
-                        label = { Text("Категория (выберите или введите новую)") },
+                        label = { Text("Категория (выберите или введите)") },
+                        placeholder = { Text("Общее") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
                         colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
                         singleLine = true,
@@ -646,17 +692,21 @@ fun AddEditProductDialog(
                             .fillMaxWidth()
                     )
 
-                    val filtered = remember(existingCategories, category) {
-                        if (category.isBlank()) existingCategories
-                        else existingCategories.filter { it.contains(category, ignoreCase = true) }
+                    val categoriesToShow = remember(existingCategories, category) {
+                        if (category.isBlank()) {
+                            existingCategories
+                        } else {
+                            val filtered = existingCategories.filter { it.contains(category, ignoreCase = true) }
+                            if (filtered.isNotEmpty()) filtered else existingCategories
+                        }
                     }
 
-                    if (filtered.isNotEmpty()) {
+                    if (existingCategories.isNotEmpty()) {
                         ExposedDropdownMenu(
                             expanded = categoryExpanded,
                             onDismissRequest = { categoryExpanded = false }
                         ) {
-                            filtered.forEach { cat ->
+                            categoriesToShow.forEach { cat ->
                                 DropdownMenuItem(
                                     text = { Text(cat) },
                                     onClick = {
@@ -768,6 +818,10 @@ fun StockIntakeDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .padding(vertical = 12.dp),
         title = {
             Column {
                 Text("Поступление товара", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

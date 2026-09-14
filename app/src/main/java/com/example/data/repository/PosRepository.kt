@@ -11,8 +11,11 @@ import com.example.data.entity.ShiftEntity
 import com.example.data.entity.SupplyEntity
 import com.example.data.entity.TransactionEntity
 import com.example.data.entity.TransactionItemEntity
+import com.example.data.sync.FirebaseSyncManager
+import com.example.data.sync.SyncState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 
 data class CartItem(
@@ -52,8 +55,11 @@ class PosRepository(
     private val supplyDao: SupplyDao,
     private val shiftDao: ShiftDao,
     private val transactionDao: TransactionDao,
-    private val customerDao: CustomerDao
+    private val customerDao: CustomerDao,
+    var syncManager: FirebaseSyncManager? = null
 ) {
+    val syncState: StateFlow<SyncState>? get() = syncManager?.syncState
+
     val allProducts: Flow<List<ProductEntity>> = productDao.getAllProducts()
     val allSupplies: Flow<List<SupplyEntity>> = supplyDao.getAllSupplies()
     val allShifts: Flow<List<ShiftEntity>> = shiftDao.getAllShifts()
@@ -63,15 +69,20 @@ class PosRepository(
 
     // --- CUSTOMERS ---
     suspend fun insertCustomer(customer: CustomerEntity): Long = withContext(Dispatchers.IO) {
-        customerDao.insertCustomer(customer)
+        val id = customerDao.insertCustomer(customer)
+        val inserted = customer.copy(id = id)
+        syncManager?.pushCustomer(inserted)
+        id
     }
 
     suspend fun updateCustomer(customer: CustomerEntity) = withContext(Dispatchers.IO) {
         customerDao.updateCustomer(customer)
+        syncManager?.pushCustomer(customer)
     }
 
     suspend fun deleteCustomer(id: Long) = withContext(Dispatchers.IO) {
         customerDao.deleteCustomerById(id)
+        syncManager?.deleteCustomer(id)
     }
 
     suspend fun getProductById(id: Long): ProductEntity? = withContext(Dispatchers.IO) {
@@ -83,16 +94,20 @@ class PosRepository(
     }
 
     suspend fun saveProduct(product: ProductEntity): Long = withContext(Dispatchers.IO) {
-        if (product.id == 0L) {
+        val id = if (product.id == 0L) {
             productDao.insertProduct(product)
         } else {
             productDao.updateProduct(product)
             product.id
         }
+        val savedProduct = product.copy(id = id)
+        syncManager?.pushProduct(savedProduct)
+        id
     }
 
     suspend fun deleteProduct(product: ProductEntity) = withContext(Dispatchers.IO) {
         productDao.deleteProduct(product)
+        syncManager?.deleteProduct(product.id)
     }
 
     // --- STOCK INTAKE / ПОСТУПЛЕНИЕ ТОВАРА ---
@@ -116,19 +131,20 @@ class PosRepository(
             sellingPrice = sellingPriceToUse
         )
         productDao.updateProduct(updatedProduct)
+        syncManager?.pushProduct(updatedProduct)
 
         // Log supply movement record
-        supplyDao.insertSupply(
-            SupplyEntity(
-                productId = productId,
-                productName = product.name,
-                stockBefore = stockBefore,
-                quantityAdded = quantityAdded,
-                stockAfter = stockAfter,
-                costPriceAtSupply = costPriceToUse,
-                supplierNote = note
-            )
+        val supply = SupplyEntity(
+            productId = productId,
+            productName = product.name,
+            stockBefore = stockBefore,
+            quantityAdded = quantityAdded,
+            stockAfter = stockAfter,
+            costPriceAtSupply = costPriceToUse,
+            supplierNote = note
         )
+        val supplyId = supplyDao.insertSupply(supply)
+        syncManager?.pushSupply(supply.copy(id = supplyId))
         true
     }
 
@@ -140,14 +156,16 @@ class PosRepository(
         val lastNumber = shiftDao.getLatestShiftNumber() ?: 0
         val newShiftNumber = lastNumber + 1
 
-        shiftDao.insertShift(
-            ShiftEntity(
-                shiftNumber = newShiftNumber,
-                initialCash = initialCash,
-                openedAt = System.currentTimeMillis(),
-                status = "OPEN"
-            )
+        val newShift = ShiftEntity(
+            shiftNumber = newShiftNumber,
+            initialCash = initialCash,
+            openedAt = System.currentTimeMillis(),
+            status = "OPEN"
         )
+        val id = shiftDao.insertShift(newShift)
+        val insertedShift = newShift.copy(id = id)
+        syncManager?.pushShift(insertedShift)
+        id
     }
 
     suspend fun closeShift(closingCash: Double): Boolean = withContext(Dispatchers.IO) {
@@ -164,6 +182,7 @@ class PosRepository(
             status = "CLOSED"
         )
         shiftDao.updateShift(updatedShift)
+        syncManager?.pushShift(updatedShift)
         true
     }
 
@@ -287,7 +306,9 @@ class PosRepository(
             val currentProduct = productDao.getProductById(cartItem.product.id)
             if (currentProduct != null) {
                 val newStock = (currentProduct.currentStock - cartItem.quantity).coerceAtLeast(0.0)
+                val updatedProd = currentProduct.copy(currentStock = newStock)
                 productDao.updateStock(currentProduct.id, newStock)
+                syncManager?.pushProduct(updatedProd)
             }
 
             TransactionItemEntity(
@@ -301,6 +322,8 @@ class PosRepository(
             )
         }
         transactionDao.insertTransactionItems(itemEntities)
+        val insertedSaleTx = saleTx.copy(id = txId)
+        syncManager?.pushTransaction(insertedSaleTx, itemEntities)
 
         txId
     }
@@ -335,7 +358,9 @@ class PosRepository(
             val currentProduct = productDao.getProductById(item.productId)
             if (currentProduct != null) {
                 val newStock = currentProduct.currentStock + item.quantity
+                val updatedProd = currentProduct.copy(currentStock = newStock)
                 productDao.updateStock(currentProduct.id, newStock)
+                syncManager?.pushProduct(updatedProd)
             }
 
             TransactionItemEntity(
@@ -349,6 +374,8 @@ class PosRepository(
             )
         }
         transactionDao.insertTransactionItems(itemEntities)
+        val insertedReturnTx = returnTx.copy(id = returnTxId)
+        syncManager?.pushTransaction(insertedReturnTx, itemEntities)
 
         returnTxId
     }

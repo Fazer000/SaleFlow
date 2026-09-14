@@ -14,6 +14,9 @@ interface ProductDao {
     @Query("SELECT * FROM products ORDER BY CASE WHEN currentStock > 0 THEN 0 ELSE 1 END, name ASC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 
+    @Query("SELECT * FROM products")
+    suspend fun getAllProductsList(): List<ProductEntity>
+
     @Query("SELECT * FROM products WHERE id = :id")
     suspend fun getProductById(id: Long): ProductEntity?
 

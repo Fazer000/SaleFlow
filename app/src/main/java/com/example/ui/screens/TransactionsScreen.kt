@@ -60,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.entity.TransactionEntity
 import com.example.data.entity.TransactionItemEntity
 import com.example.ui.PosViewModel
@@ -166,21 +167,39 @@ fun TransactionsScreen(
                     }
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredTransactions, key = { it.id }) { tx ->
-                        TransactionCard(
-                            transaction = tx,
-                            viewModel = viewModel,
-                            onInitiateReturn = { transaction, items ->
-                                selectedTxForReturn = transaction
-                                txItemsToReturn = items
-                            }
-                        )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 24.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredTransactions, key = { it.id }) { tx ->
+                            TransactionCard(
+                                transaction = tx,
+                                viewModel = viewModel,
+                                onInitiateReturn = { transaction, items ->
+                                    selectedTxForReturn = transaction
+                                    txItemsToReturn = items
+                                }
+                            )
+                        }
                     }
+
+                    // Top Shadow Overlay
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(
+                                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.12f),
+                                        androidx.compose.ui.graphics.Color.Transparent
+                                    )
+                                )
+                            )
+                    )
                 }
             }
         }
@@ -444,6 +463,10 @@ fun ProcessReturnDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .padding(vertical = 12.dp),
         title = {
             Column {
                 Text("Оформление возврата", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -58,12 +60,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.entity.TransactionEntity
 import com.example.ui.PosViewModel
 import com.example.ui.theme.PosSuccess
@@ -176,23 +181,13 @@ fun CustomersScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
+                    CustomSearchInput(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
+                        placeholderText = "Поиск покупателя...",
                         modifier = Modifier
                             .weight(1f)
-                            .testTag("customer_search_input"),
-                        placeholder = { Text("Поиск покупателя...", fontSize = 13.sp) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                            .testTag("customer_search_input")
                     )
 
                     Spacer(modifier = Modifier.width(6.dp))
@@ -206,7 +201,7 @@ fun CustomersScreen(
                         },
                         contentPadding = PaddingValues(horizontal = 12.dp),
                         modifier = Modifier
-                            .height(50.dp)
+                            .height(48.dp)
                             .testTag("add_customer_button"),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -241,18 +236,36 @@ fun CustomersScreen(
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filteredCustomers, key = { it.customer.id }) { item ->
-                        CustomerCard(
-                            item = item,
-                            onSelect = { selectedCustomerForDetails = item },
-                            onDelete = { customerToDelete = item.customer.id }
-                        )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filteredCustomers, key = { it.customer.id }) { item ->
+                            CustomerCard(
+                                item = item,
+                                onSelect = { selectedCustomerForDetails = item },
+                                onDelete = { customerToDelete = item.customer.id }
+                            )
+                        }
                     }
+
+                    // Top Shadow Overlay
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(
+                                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.12f),
+                                        androidx.compose.ui.graphics.Color.Transparent
+                                    )
+                                )
+                            )
+                    )
                 }
             }
         }
@@ -262,6 +275,10 @@ fun CustomersScreen(
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .padding(vertical = 12.dp),
             title = { Text("Новый покупатель") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -343,6 +360,10 @@ fun CustomersScreen(
 
         AlertDialog(
             onDismissRequest = { selectedCustomerForDetails = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .padding(vertical = 12.dp),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)

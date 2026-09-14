@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +33,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -49,6 +52,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.AlertDialog
@@ -88,13 +92,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.entity.CustomerEntity
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.ShiftEntity
@@ -108,6 +116,74 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@Composable
+fun CustomSearchInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholderText: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        modifier = modifier.height(48.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = "Search",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = placeholderText,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (value.isNotEmpty()) {
+                IconButton(
+                    onClick = { onValueChange("") },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Clear,
+                        contentDescription = "Clear",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TerminalScreen(
@@ -120,7 +196,8 @@ fun TerminalScreen(
     lastReceipt: TransactionEntity?,
     lastReceiptItems: List<TransactionItemEntity>,
     searchQuery: String,
-    selectedCategory: String
+    selectedCategory: String,
+    onOpenSettings: () -> Unit = {}
 ) {
     var selectedPaymentMethod by remember { mutableStateOf("CASH") }
     var showDiscountModal by remember { mutableStateOf(false) }
@@ -149,7 +226,9 @@ fun TerminalScreen(
                         categories = categories,
                         searchQuery = searchQuery,
                         selectedCategory = selectedCategory,
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        cart = cart,
+                        onOpenSettings = onOpenSettings
                     )
                 }
 
@@ -192,7 +271,9 @@ fun TerminalScreen(
                         searchQuery = searchQuery,
                         selectedCategory = selectedCategory,
                         viewModel = viewModel,
-                        bottomPadding = if (cart.isNotEmpty()) 80.dp else 0.dp
+                        cart = cart,
+                        bottomPadding = if (cart.isNotEmpty()) 80.dp else 0.dp,
+                        onOpenSettings = onOpenSettings
                     )
                 }
 
@@ -308,20 +389,41 @@ fun TerminalScreen(
                     Divider()
 
                     // Cart Items List (Scrollable)
-                    LazyColumn(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .height(200.dp)
                     ) {
-                        items(cart, key = { it.product.id }) { item ->
-                            MobileCartItemCard(
-                                item = item,
-                                onIncrease = { viewModel.updateCartQuantity(item.product.id, item.quantity + 1) },
-                                onDecrease = { viewModel.updateCartQuantity(item.product.id, item.quantity - 1) },
-                                onRemove = { viewModel.updateCartQuantity(item.product.id, 0.0) }
-                            )
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
+                        ) {
+                            items(cart, key = { it.product.id }) { item ->
+                                MobileCartItemCard(
+                                    item = item,
+                                    onIncrease = { viewModel.updateCartQuantity(item.product.id, item.quantity + 1) },
+                                    onDecrease = { viewModel.updateCartQuantity(item.product.id, item.quantity - 1) },
+                                    onRemove = { viewModel.updateCartQuantity(item.product.id, 0.0) }
+                                )
+                            }
                         }
+
+                        // Top Shadow Overlay
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .align(Alignment.TopCenter)
+                                .background(
+                                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                        colors = listOf(
+                                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.10f),
+                                            androidx.compose.ui.graphics.Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -434,6 +536,10 @@ fun TerminalScreen(
         if (showDiscountModal) {
             AlertDialog(
                 onDismissRequest = { showDiscountModal = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .padding(vertical = 12.dp),
                 title = { Text("Укажите скидку на чек (₽)") },
                 text = {
                     Column {
@@ -473,28 +579,45 @@ fun CatalogSection(
     searchQuery: String,
     selectedCategory: String,
     viewModel: PosViewModel,
-    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
+    cart: List<CartItem> = emptyList(),
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
+    onOpenSettings: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // Search Field
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { viewModel.setSearchQuery(it) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("terminal_search_input"),
-            placeholder = { Text("Поиск товара или штрихкода...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear")
-                    }
+        // Search Row with Settings Button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CustomSearchInput(
+                value = searchQuery,
+                onValueChange = { viewModel.setSearchQuery(it) },
+                placeholderText = "Поиск товара или штрихкода...",
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("terminal_search_input")
+            )
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                modifier = Modifier
+                    .size(48.dp)
+                    .clickable { onOpenSettings() }
+                    .testTag("terminal_settings_button")
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = "Настройки",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp)
-        )
+            }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -549,19 +672,43 @@ fun CatalogSection(
                 }
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 140.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(top = 4.dp, bottom = bottomPadding + 24.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(products, key = { it.id }) { product ->
-                    SpaciousProductCard(
-                        product = product,
-                        onAddToCart = { viewModel.addToCart(product) }
-                    )
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 140.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(top = 6.dp, bottom = bottomPadding + 24.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(products, key = { it.id }) { product ->
+                        val cartItem = cart.find { it.product.id == product.id }
+                        val cartQuantity = cartItem?.quantity ?: 0.0
+
+                        SpaciousProductCard(
+                            product = product,
+                            cartQuantity = cartQuantity,
+                            onAddToCart = { viewModel.addToCart(product) },
+                            onIncrease = { viewModel.updateCartQuantity(product.id, cartQuantity + 1.0) },
+                            onDecrease = { viewModel.updateCartQuantity(product.id, (cartQuantity - 1.0).coerceAtLeast(0.0)) }
+                        )
+                    }
                 }
+
+                // Top Shadow Overlay
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(
+                                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.12f),
+                                    androidx.compose.ui.graphics.Color.Transparent
+                                )
+                            )
+                        )
+                )
             }
         }
     }
@@ -570,78 +717,178 @@ fun CatalogSection(
 @Composable
 fun SpaciousProductCard(
     product: ProductEntity,
-    onAddToCart: () -> Unit
+    cartQuantity: Double,
+    onAddToCart: () -> Unit,
+    onIncrease: () -> Unit,
+    onDecrease: () -> Unit
 ) {
     val inStock = product.currentStock > 0
+    val isInCart = cartQuantity > 0.0
 
     Card(
-        onClick = onAddToCart,
-        enabled = inStock,
         colors = CardDefaults.cardColors(
             containerColor = if (inStock) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, if (isInCart) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isInCart) 3.dp else 2.dp),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("product_card_${product.id}")
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = product.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Header: Product Name + Cart badge (if in cart)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = product.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
 
-            Spacer(modifier = Modifier.height(10.dp))
+                if (isInCart) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    ) {
+                        Text(
+                            text = "${cartQuantity.toInt()} шт",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Price & Stock info
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "${product.sellingPrice.toInt()} ₽",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = if (inStock) "${product.currentStock.toInt()} ${product.unit}" else "Нет в наличии",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (inStock) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error,
-                        fontSize = 10.sp
-                    )
-                }
+                Text(
+                    text = "${product.sellingPrice.toInt()} ₽",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = if (inStock) "${product.currentStock.toInt()} ${product.unit}" else "Нет в наличии",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (inStock) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error,
+                    fontSize = 10.sp
+                )
+            }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (inStock) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Controls Block (+ - Stepper or Add Button)
+            if (isInCart) {
+                // INLINE STEPPER CONTROL (+ -)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    // MINUS BUTTON
+                    Surface(
+                        onClick = onDecrease,
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                        modifier = Modifier
+                            .size(26.dp)
+                            .testTag("product_decrease_${product.id}")
                     ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add",
-                            tint = if (inStock) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = "Чек",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (inStock) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(start = 2.dp)
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Remove,
+                                contentDescription = "Уменьшить",
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
+
+                    // QUANTITY TEXT
+                    Text(
+                        text = "${cartQuantity.toInt()} шт",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+
+                    // PLUS BUTTON
+                    Surface(
+                        onClick = onIncrease,
+                        enabled = cartQuantity < product.currentStock,
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (cartQuantity < product.currentStock) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        modifier = Modifier
+                            .size(26.dp)
+                            .testTag("product_increase_${product.id}")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Увеличить",
+                                tint = if (cartQuantity < product.currentStock) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                // ADD TO CART BUTTON (when count == 0)
+                Button(
+                    onClick = onAddToCart,
+                    enabled = inStock,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .testTag("product_add_button_${product.id}")
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Добавить",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (inStock) "В чек" else "Нет",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -656,14 +903,14 @@ fun MobileCartItemCard(
     onRemove: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
+                .padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -823,20 +1070,41 @@ fun CartCheckoutPane(
                 }
             }
         } else {
-            LazyColumn(
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .fillMaxWidth()
             ) {
-                items(cart, key = { it.product.id }) { item ->
-                    MobileCartItemCard(
-                        item = item,
-                        onIncrease = { viewModel.updateCartQuantity(item.product.id, item.quantity + 1) },
-                        onDecrease = { viewModel.updateCartQuantity(item.product.id, item.quantity - 1) },
-                        onRemove = { viewModel.updateCartQuantity(item.product.id, 0.0) }
-                    )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
+                ) {
+                    items(cart, key = { it.product.id }) { item ->
+                        MobileCartItemCard(
+                            item = item,
+                            onIncrease = { viewModel.updateCartQuantity(item.product.id, item.quantity + 1) },
+                            onDecrease = { viewModel.updateCartQuantity(item.product.id, item.quantity - 1) },
+                            onRemove = { viewModel.updateCartQuantity(item.product.id, 0.0) }
+                        )
+                    }
                 }
+
+                // Top Shadow Overlay
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(
+                                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.10f),
+                                    androidx.compose.ui.graphics.Color.Transparent
+                                )
+                            )
+                        )
+                )
             }
         }
 
@@ -941,6 +1209,10 @@ fun ReceiptSuccessDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .padding(vertical = 12.dp),
         title = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Box(
@@ -1037,123 +1309,146 @@ fun CustomerSelectionDialog(
         }
     }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Выбор покупателя",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Закрыть", modifier = Modifier.size(18.dp))
-                }
-            }
-        },
-        text = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+            shadowElevation = 8.dp,
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 16.dp)
+        ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Search Input Field
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Поиск по имени или телефону...", fontSize = 13.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Очистить", modifier = Modifier.size(18.dp))
-                            }
-                        }
-                    },
+                // Header: Title & Close Button
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("customer_search_input"),
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp)
-                )
+                        .padding(start = 16.dp, end = 12.dp, top = 16.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Выбор покупателя",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Закрыть",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                // Search Input Field
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    CustomSearchInput(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholderText = "Поиск по имени или телефону...",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("customer_search_input")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 if (showAddInline) {
                     // Inline quick add customer form
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                "Новый покупатель",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    "Новый покупатель",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                            OutlinedTextField(
-                                value = newName,
-                                onValueChange = { newName = it },
-                                label = { Text("ФИО / Имя") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
+                                OutlinedTextField(
+                                    value = newName,
+                                    onValueChange = { newName = it },
+                                    label = { Text("ФИО / Имя") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
 
-                            OutlinedTextField(
-                                value = newPhone,
-                                onValueChange = { newPhone = it },
-                                label = { Text("Телефон") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
+                                OutlinedTextField(
+                                    value = newPhone,
+                                    onValueChange = { newPhone = it },
+                                    label = { Text("Телефон") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                TextButton(onClick = { showAddInline = false }) {
-                                    Text("Отмена")
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = {
-                                        if (newName.isNotBlank()) {
-                                            onAddNewCustomer(newName, newPhone)
-                                            showAddInline = false
-                                            newName = ""
-                                            newPhone = ""
-                                        }
-                                    },
-                                    enabled = newName.isNotBlank()
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
                                 ) {
-                                    Text("Сохранить и выбрать")
+                                    TextButton(onClick = { showAddInline = false }) {
+                                        Text("Отмена")
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                        onClick = {
+                                            if (newName.isNotBlank()) {
+                                                onAddNewCustomer(newName, newPhone)
+                                                showAddInline = false
+                                                newName = ""
+                                                newPhone = ""
+                                            }
+                                        },
+                                        enabled = newName.isNotBlank()
+                                    ) {
+                                        Text("Сохранить и выбрать")
+                                    }
                                 }
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(10.dp))
                 } else {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1172,161 +1467,178 @@ fun CustomerSelectionDialog(
                     Spacer(modifier = Modifier.height(6.dp))
                 }
 
-                LazyColumn(
+                // Scrollable List going to the very bottom of the alert without bottom padding
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .heightIn(max = 280.dp)
                 ) {
-                    // Option 1: "Частный клиент (без привязки)"
-                    item {
-                        val isSelected = selectedCustomer == null
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onSelectCustomer(null)
-                                    onDismiss()
-                                }
-                        ) {
-                            Row(
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Option 1: "Частный клиент (без привязки)"
+                        item {
+                            val isSelected = selectedCustomer == null
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .clickable {
+                                        onSelectCustomer(null)
+                                        onDismiss()
+                                    }
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .clip(CircleShape)
-                                            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Person,
-                                            contentDescription = null,
-                                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                "Частный клиент",
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            Text(
+                                                "Анонимная покупка без сохранения долга",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 11.sp
+                                            )
+                                        }
                                     }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text(
-                                            "Частный клиент",
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        Text(
-                                            "Анонимная покупка без сохранения долга",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 11.sp
-                                        )
-                                    }
-                                }
 
-                                if (isSelected) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Option 2...N: Registered Customers
-                    items(filtered, key = { it.id }) { customer ->
-                        val isSelected = selectedCustomer?.id == customer.id
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                            border = androidx.compose.foundation.BorderStroke(
-                                if (isSelected) 2.dp else 1.dp,
-                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onSelectCustomer(customer)
-                                    onDismiss()
-                                }
-                        ) {
-                            Row(
+                        // Option 2...N: Registered Customers
+                        items(filtered, key = { it.id }) { customer ->
+                            val isSelected = selectedCustomer?.id == customer.id
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(
+                                    if (isSelected) 2.dp else 1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .clip(CircleShape)
-                                            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            customer.name.take(1).uppercase(),
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
+                                    .clickable {
+                                        onSelectCustomer(customer)
+                                        onDismiss()
                                     }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text(
-                                            customer.name,
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        if (customer.phone.isNotEmpty()) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    Icons.Default.Phone,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(12.dp),
-                                                    tint = MaterialTheme.colorScheme.outline
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(
-                                                    customer.phone,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.outline,
-                                                    fontSize = 11.sp
-                                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                customer.name.take(1).uppercase(),
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                customer.name,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (customer.phone.isNotEmpty()) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        Icons.Default.Phone,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(12.dp),
+                                                        tint = MaterialTheme.colorScheme.outline
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        customer.phone,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.outline,
+                                                        fontSize = 11.sp
+                                                    )
+                                                }
                                             }
                                         }
                                     }
-                                }
 
-                                if (isSelected) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+
+                    // Top Shadow Overlay over the list
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(12.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.12f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Закрыть")
-            }
         }
-    )
+    }
 }
 
 @Composable

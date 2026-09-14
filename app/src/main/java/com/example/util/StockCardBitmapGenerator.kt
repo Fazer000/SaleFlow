@@ -115,13 +115,16 @@ object StockCardBitmapGenerator {
         var currentY = cardRect.top + 70f
 
         // 3. Shop Header Banner
-        val shopTitlePaint = Paint().apply {
-            color = style.accentColor
-            textSize = 44f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            isAntiAlias = true
+        if (shopName.isNotBlank()) {
+            val shopTitlePaint = Paint().apply {
+                color = style.accentColor
+                textSize = 44f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                isAntiAlias = true
+            }
+            canvas.drawText(shopName, leftX, currentY, shopTitlePaint)
+            currentY += 45f
         }
-        canvas.drawText(shopName.ifBlank { "Наш Магазин" }, leftX, currentY, shopTitlePaint)
 
         if (contactInfo.isNotBlank()) {
             val contactPaint = Paint().apply {
@@ -130,11 +133,13 @@ object StockCardBitmapGenerator {
                 textSize = 28f
                 isAntiAlias = true
             }
-            canvas.drawText(contactInfo, leftX, currentY + 42f, contactPaint)
+            canvas.drawText(contactInfo, leftX, currentY, contactPaint)
             currentY += 45f
         }
 
-        currentY += 60f
+        if (shopName.isNotBlank() || contactInfo.isNotBlank()) {
+            currentY += 20f
+        }
 
         // Stock Badge ("В НАЛИЧИИ")
         val badgeText = "В НАЛИЧИИ (${product.currentStock.toInt()} ${product.unit})"
@@ -277,7 +282,7 @@ object StockCardBitmapGenerator {
         style: CardStyle = CardStyle.OCEAN
     ): Bitmap {
         val width = 1080
-        val itemsToShow = products.take(8)
+        val itemsToShow = if (products.isEmpty()) emptyList() else products.take(50)
         val height = 450 + (itemsToShow.size * 110)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -305,15 +310,7 @@ object StockCardBitmapGenerator {
         val rightX = cardRect.right - 50f
         var currentY = cardRect.top + 70f
 
-        // Shop Title
-        val shopTitlePaint = Paint().apply {
-            color = style.accentColor
-            textSize = 48f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            isAntiAlias = true
-        }
-        canvas.drawText(shopName.ifBlank { "Наш Магазин" }, leftX, currentY, shopTitlePaint)
-
+        // Shop Title & Badge
         val badgeText = "В НАЛИЧИИ"
         val badgePaint = Paint().apply {
             color = Color.parseColor("#2E7D32")
@@ -321,21 +318,38 @@ object StockCardBitmapGenerator {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
-        canvas.drawText(badgeText, rightX - 160f, currentY, badgePaint)
+        val badgeWidth = badgePaint.measureText(badgeText)
 
-        currentY += 40f
-        if (contactInfo.isNotBlank()) {
+        val cleanShop = shopName.trim('.', ',', ' ', '\n', '\t')
+        val cleanContact = contactInfo.trim('.', ',', ' ', '\n', '\t')
+
+        if (cleanShop.isNotBlank()) {
+            val shopTitlePaint = Paint().apply {
+                color = style.accentColor
+                textSize = 48f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                isAntiAlias = true
+            }
+            canvas.drawText(cleanShop, leftX, currentY, shopTitlePaint)
+            canvas.drawText(badgeText, rightX - badgeWidth, currentY, badgePaint)
+            currentY += 40f
+        } else {
+            canvas.drawText(badgeText, rightX - badgeWidth, currentY, badgePaint)
+            currentY += 40f
+        }
+
+        if (cleanContact.isNotBlank()) {
             val contactPaint = Paint().apply {
                 color = style.primaryTextColor
                 alpha = 180
                 textSize = 28f
                 isAntiAlias = true
             }
-            canvas.drawText(contactInfo, leftX, currentY, contactPaint)
+            canvas.drawText(cleanContact, leftX, currentY, contactPaint)
             currentY += 35f
         }
 
-        currentY += 30f
+        currentY += 15f
         val dividerPaint = Paint().apply {
             color = style.primaryTextColor
             alpha = 40
@@ -367,11 +381,20 @@ object StockCardBitmapGenerator {
         }
 
         for (product in itemsToShow) {
-            val displayName = if (product.name.length > 32) product.name.take(30) + "..." else product.name
-            canvas.drawText(displayName, leftX, currentY, namePaint)
-
             val priceStr = "${formatCurrency(product.sellingPrice)} ₽"
             val priceWidth = pricePaint.measureText(priceStr)
+
+            val maxNameWidth = rightX - priceWidth - leftX - 30f
+            var displayName = product.name
+            if (namePaint.measureText(displayName) > maxNameWidth) {
+                var len = displayName.length
+                while (len > 3 && namePaint.measureText(displayName.take(len) + "...") > maxNameWidth) {
+                    len--
+                }
+                displayName = displayName.take(len) + "..."
+            }
+
+            canvas.drawText(displayName, leftX, currentY, namePaint)
             canvas.drawText(priceStr, rightX - priceWidth, currentY, pricePaint)
 
             canvas.drawText("${product.currentStock.toInt()} ${product.unit}", leftX, currentY + 34f, stockPaint)

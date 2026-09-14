@@ -141,7 +141,7 @@ fun MainPosApp(viewModel: PosViewModel) {
                         .windowInsetsPadding(WindowInsets.navigationBars)
                         .testTag("pos_navigation_bar")
                 ) {
-                    PosTab.values().forEach { tab ->
+                    PosTab.values().filter { it != PosTab.SETTINGS }.forEach { tab ->
                         NavigationBarItem(
                             selected = currentTab == tab,
                             onClick = { currentTab = tab },
@@ -180,7 +180,8 @@ fun MainPosApp(viewModel: PosViewModel) {
                             lastReceipt = lastReceipt,
                             lastReceiptItems = lastReceiptItems,
                             searchQuery = searchQuery,
-                            selectedCategory = selectedCategory
+                            selectedCategory = selectedCategory,
+                            onOpenSettings = { currentTab = PosTab.SETTINGS }
                         )
                     }
 
@@ -219,7 +220,8 @@ fun MainPosApp(viewModel: PosViewModel) {
                         SettingsScreen(
                             viewModel = viewModel,
                             updateState = updateState,
-                            repoSlug = repoSlug
+                            repoSlug = repoSlug,
+                            onNavigateBack = { currentTab = PosTab.TERMINAL }
                         )
                     }
                 }

@@ -38,13 +38,31 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private val db = AppDatabase.getDatabase(application)
+    private val syncManager = com.example.data.sync.FirebaseSyncManager(
+        context = application,
+        productDao = db.productDao(),
+        customerDao = db.customerDao(),
+        shiftDao = db.shiftDao(),
+        supplyDao = db.supplyDao(),
+        transactionDao = db.transactionDao()
+    )
     private val repository = PosRepository(
         productDao = db.productDao(),
         supplyDao = db.supplyDao(),
         shiftDao = db.shiftDao(),
         transactionDao = db.transactionDao(),
-        customerDao = db.customerDao()
+        customerDao = db.customerDao(),
+        syncManager = syncManager
     )
+
+    val syncState: StateFlow<com.example.data.sync.SyncState> = syncManager.syncState
+
+    fun triggerFullCloudSync() {
+        viewModelScope.launch {
+            syncManager.syncAllLocalToCloud()
+            _messageEvent.value = "Запущена полная синхронизация с облаком Firebase"
+        }
+    }
 
     private val updateManager = UpdateManager()
 

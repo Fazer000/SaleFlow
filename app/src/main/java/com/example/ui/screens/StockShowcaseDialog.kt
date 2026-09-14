@@ -48,6 +48,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -67,6 +69,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.entity.ProductEntity
 import com.example.util.CardStyle
 import com.example.util.StockCardBitmapGenerator
@@ -97,6 +100,10 @@ fun StockShowcaseDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .padding(vertical = 12.dp),
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -129,16 +136,55 @@ fun StockShowcaseDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 // Mode Selector Tabs
-                TabRow(selectedTabIndex = if (isSingleMode) 0 else 1) {
+                TabRow(
+                    selectedTabIndex = if (isSingleMode) 0 else 1,
+                    containerColor = Color.Transparent,
+                    divider = {},
+                    indicator = { tabPositions ->
+                        val selectedIndex = if (isSingleMode) 0 else 1
+                        if (selectedIndex < tabPositions.size) {
+                            val currentTab = tabPositions[selectedIndex]
+                            val currentTabWidth = currentTab.contentWidth
+                            val indicatorOffset = currentTab.left + (currentTab.width - currentTabWidth) / 2
+
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .wrapContentSize(Alignment.BottomStart)
+                                    .offset(x = indicatorOffset)
+                                    .width(currentTabWidth)
+                                    .height(3.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
+                                    )
+                            )
+                        }
+                    }
+                ) {
                     Tab(
                         selected = isSingleMode,
                         onClick = { isSingleMode = true },
-                        text = { Text("Один товар", fontSize = 12.sp) }
+                        text = {
+                            Text(
+                                "Один товар",
+                                fontSize = 13.sp,
+                                fontWeight = if (isSingleMode) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSingleMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     )
                     Tab(
                         selected = !isSingleMode,
                         onClick = { isSingleMode = false },
-                        text = { Text("Витрина каталога", fontSize = 12.sp) }
+                        text = {
+                            Text(
+                                "Витрина каталога",
+                                fontSize = 13.sp,
+                                fontWeight = if (!isSingleMode) FontWeight.Bold else FontWeight.Medium,
+                                color = if (!isSingleMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     )
                 }
 
@@ -283,21 +329,28 @@ fun StockShowcaseDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
-                                Text(
-                                    shopName.ifBlank { "Наш Магазин" },
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(selectedStyle.accentColor),
-                                    fontSize = 16.sp
-                                )
-                                if (contactInfo.isNotBlank()) {
+                                val cleanShop = shopName.trim('.', ',', ' ', '\n', '\t')
+                                val cleanContact = contactInfo.trim('.', ',', ' ', '\n', '\t')
+
+                                if (cleanShop.isNotBlank()) {
                                     Text(
-                                        contactInfo,
+                                        cleanShop,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(selectedStyle.accentColor),
+                                        fontSize = 16.sp
+                                    )
+                                }
+                                if (cleanContact.isNotBlank()) {
+                                    Text(
+                                        cleanContact,
                                         fontSize = 11.sp,
                                         color = Color(selectedStyle.primaryTextColor).copy(alpha = 0.7f)
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                if (cleanShop.isNotBlank() || cleanContact.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
 
                                 Surface(
                                     color = Color(0xFF2E7D32),
@@ -359,7 +412,7 @@ fun StockShowcaseDialog(
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
 
-                                    inStockProducts.take(4).forEach { item ->
+                                    inStockProducts.forEach { item ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
@@ -373,6 +426,7 @@ fun StockShowcaseDialog(
                                                 modifier = Modifier.weight(1f),
                                                 color = Color(selectedStyle.primaryTextColor)
                                             )
+                                            Spacer(modifier = Modifier.width(8.dp))
                                             Text(
                                                 "${formatCurrency(item.sellingPrice)} ₽",
                                                 fontSize = 12.sp,

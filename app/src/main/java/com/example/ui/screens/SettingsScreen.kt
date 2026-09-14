@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Code
@@ -35,6 +36,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -60,7 +62,8 @@ import com.example.updater.UpdateCheckResult
 fun SettingsScreen(
     viewModel: PosViewModel,
     updateState: UpdateCheckResult,
-    repoSlug: String
+    repoSlug: String,
+    onNavigateBack: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val currentVersion = "1.0.0"
@@ -73,11 +76,22 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Настройки и Обновления",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (onNavigateBack != null) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
+                }
+            }
+            Text(
+                text = "Настройки и Обновления",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
 
         // 1. Theme Card
         Card(
@@ -123,6 +137,115 @@ fun SettingsScreen(
                         modifier = Modifier.testTag("dark_theme_switch")
                     )
                 }
+            }
+        }
+
+        // 2. Firebase Cloud Sync Card
+        val syncState by viewModel.syncState.collectAsState()
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.CloudDownload,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Облачная синхронизация (Firebase)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Мгновенная синхронизация между всеми копиями приложения",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Status Indicator Banner
+                val (statusBg, statusText, statusColor) = when (syncState) {
+                    com.example.data.sync.SyncState.SYNCED -> Triple(
+                        PosSuccess.copy(alpha = 0.15f),
+                        "🟢 " + syncState.label,
+                        PosSuccess
+                    )
+                    com.example.data.sync.SyncState.SYNCING -> Triple(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        "🔄 " + syncState.label,
+                        MaterialTheme.colorScheme.primary
+                    )
+                    com.example.data.sync.SyncState.OFFLINE -> Triple(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        "⚪ " + syncState.label,
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    com.example.data.sync.SyncState.ERROR -> Triple(
+                        MaterialTheme.colorScheme.errorContainer,
+                        "🔴 " + syncState.label,
+                        MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = statusBg,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = statusColor
+                        )
+
+                        if (syncState == com.example.data.sync.SyncState.SYNCING) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = statusColor
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = { viewModel.triggerFullCloudSync() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("force_firebase_sync_button"),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Синхронизировать все данные с облаком")
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Любые изменения (товары, чеки, клиенты, остатки и смены) автоматически отправляются в Firebase Firestore и мгновенно появляются на всех устройствах.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
             }
         }
 
