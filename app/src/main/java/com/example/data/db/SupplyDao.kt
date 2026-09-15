@@ -18,6 +18,12 @@ interface SupplyDao {
     @Query("SELECT * FROM supplies WHERE productId = :productId ORDER BY timestamp DESC")
     fun getSuppliesForProduct(productId: Long): Flow<List<SupplyEntity>>
 
+    @Query("SELECT * FROM supplies WHERE batchId = :batchId ORDER BY id ASC")
+    fun getSuppliesForBatch(batchId: Long): Flow<List<SupplyEntity>>
+
+    @Query("SELECT * FROM supplies WHERE batchId = :batchId ORDER BY id ASC")
+    suspend fun getSuppliesForBatchSync(batchId: Long): List<SupplyEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSupply(supply: SupplyEntity): Long
 }

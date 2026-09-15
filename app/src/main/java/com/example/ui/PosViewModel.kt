@@ -7,11 +7,13 @@ import com.example.data.db.AppDatabase
 import com.example.data.entity.CustomerEntity
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.ShiftEntity
+import com.example.data.entity.SupplyBatchEntity
 import com.example.data.entity.SupplyEntity
 import com.example.data.entity.TransactionEntity
 import com.example.data.entity.TransactionItemEntity
 import com.example.data.repository.CartItem
 import com.example.data.repository.PosRepository
+import com.example.data.repository.SupplyBatchItemDraft
 import com.example.data.repository.ShiftReportSummary
 import com.example.updater.UpdateCheckResult
 import com.example.updater.UpdateManager
@@ -49,6 +51,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = PosRepository(
         productDao = db.productDao(),
         supplyDao = db.supplyDao(),
+        supplyBatchDao = db.supplyBatchDao(),
         shiftDao = db.shiftDao(),
         transactionDao = db.transactionDao(),
         customerDao = db.customerDao(),
@@ -71,6 +74,9 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allSupplies: StateFlow<List<SupplyEntity>> = repository.allSupplies
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allSupplyBatches: StateFlow<List<SupplyBatchEntity>> = repository.allSupplyBatches
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allShifts: StateFlow<List<ShiftEntity>> = repository.allShifts
@@ -370,6 +376,35 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                 _messageEvent.value = "Ошибка записи поступления!"
             }
         }
+    }
+
+    fun recordGroupedSupplyBatch(
+        supplierName: String,
+        invoiceNumber: String,
+        note: String,
+        items: List<SupplyBatchItemDraft>
+    ) {
+        if (items.isEmpty()) {
+            _messageEvent.value = "Поставка не содержит товаров!"
+            return
+        }
+        viewModelScope.launch {
+            val success = repository.recordGroupedSupplyBatch(
+                supplierName = supplierName,
+                invoiceNumber = invoiceNumber,
+                note = note,
+                items = items
+            )
+            if (success) {
+                _messageEvent.value = "Поставка успешно сформирована и проведена!"
+            } else {
+                _messageEvent.value = "Ошибка при проведении поставки!"
+            }
+        }
+    }
+
+    suspend fun getSuppliesForBatch(batchId: Long): List<SupplyEntity> {
+        return repository.getSuppliesForBatch(batchId)
     }
 
     // --- SHIFTS ---

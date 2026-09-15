@@ -3,11 +3,13 @@ package com.example.data.repository
 import com.example.data.db.CustomerDao
 import com.example.data.db.ProductDao
 import com.example.data.db.ShiftDao
+import com.example.data.db.SupplyBatchDao
 import com.example.data.db.SupplyDao
 import com.example.data.db.TransactionDao
 import com.example.data.entity.CustomerEntity
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.ShiftEntity
+import com.example.data.entity.SupplyBatchEntity
 import com.example.data.entity.SupplyEntity
 import com.example.data.entity.TransactionEntity
 import com.example.data.entity.TransactionItemEntity
@@ -17,6 +19,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+
+data class SupplyBatchItemDraft(
+    val productId: Long,
+    val quantityAdded: Double,
+    val costPrice: Double,
+    val sellingPrice: Double,
+    val note: String? = null
+)
 
 data class CartItem(
     val product: ProductEntity,
@@ -53,6 +63,7 @@ data class TopSoldItem(
 class PosRepository(
     private val productDao: ProductDao,
     private val supplyDao: SupplyDao,
+    private val supplyBatchDao: SupplyBatchDao,
     private val shiftDao: ShiftDao,
     private val transactionDao: TransactionDao,
     private val customerDao: CustomerDao,
@@ -62,6 +73,7 @@ class PosRepository(
 
     val allProducts: Flow<List<ProductEntity>> = productDao.getAllProducts()
     val allSupplies: Flow<List<SupplyEntity>> = supplyDao.getAllSupplies()
+    val allSupplyBatches: Flow<List<SupplyBatchEntity>> = supplyBatchDao.getAllBatches()
     val allShifts: Flow<List<ShiftEntity>> = shiftDao.getAllShifts()
     val currentOpenShift: Flow<ShiftEntity?> = shiftDao.getCurrentOpenShift()
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
@@ -141,11 +153,79 @@ class PosRepository(
             quantityAdded = quantityAdded,
             stockAfter = stockAfter,
             costPriceAtSupply = costPriceToUse,
+            sellingPriceAtSupply = sellingPriceToUse,
             supplierNote = note
         )
         val supplyId = supplyDao.insertSupply(supply)
         syncManager?.pushSupply(supply.copy(id = supplyId))
         true
+    }
+
+    suspend fun recordGroupedSupplyBatch(
+        supplierName: String,
+        invoiceNumber: String,
+        note: String,
+        items: List<SupplyBatchItemDraft>
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (items.isEmpty()) return@withContext false
+
+        var totalCostPrice = 0.0
+        var totalSellingPrice = 0.0
+        var totalQuantity = 0.0
+
+        items.forEach { item ->
+            totalCostPrice += item.quantityAdded * item.costPrice
+            totalSellingPrice += item.quantityAdded * item.sellingPrice
+            totalQuantity += item.quantityAdded
+        }
+
+        val batch = SupplyBatchEntity(
+            supplierName = supplierName,
+            invoiceNumber = invoiceNumber,
+            note = note,
+            totalCostPrice = totalCostPrice,
+            totalSellingPrice = totalSellingPrice,
+            totalQuantity = totalQuantity,
+            itemCount = items.size,
+            timestamp = System.currentTimeMillis()
+        )
+
+        val batchId = supplyBatchDao.insertBatch(batch)
+
+        items.forEach { draft ->
+            val product = productDao.getProductById(draft.productId)
+            if (product != null) {
+                val stockBefore = product.currentStock
+                val stockAfter = stockBefore + draft.quantityAdded
+                val updatedProduct = product.copy(
+                    currentStock = stockAfter,
+                    costPrice = draft.costPrice,
+                    sellingPrice = draft.sellingPrice
+                )
+                productDao.updateProduct(updatedProduct)
+                syncManager?.pushProduct(updatedProduct)
+
+                val supply = SupplyEntity(
+                    batchId = batchId,
+                    productId = draft.productId,
+                    productName = product.name,
+                    stockBefore = stockBefore,
+                    quantityAdded = draft.quantityAdded,
+                    stockAfter = stockAfter,
+                    costPriceAtSupply = draft.costPrice,
+                    sellingPriceAtSupply = draft.sellingPrice,
+                    supplierNote = draft.note,
+                    timestamp = System.currentTimeMillis()
+                )
+                val supplyId = supplyDao.insertSupply(supply)
+                syncManager?.pushSupply(supply.copy(id = supplyId))
+            }
+        }
+        true
+    }
+
+    suspend fun getSuppliesForBatch(batchId: Long): List<SupplyEntity> = withContext(Dispatchers.IO) {
+        supplyDao.getSuppliesForBatchSync(batchId)
     }
 
     // --- SHIFTS / СМЕНЫ ---
@@ -406,10 +486,21 @@ class PosRepository(
         productDao.insertProduct(p5)
         productDao.insertProduct(p6)
 
-        // Add initial supply intake logs
-        supplyDao.insertSupply(SupplyEntity(productId = id1, productName = p1.name, stockBefore = 0.0, quantityAdded = 50.0, stockAfter = 50.0, costPriceAtSupply = 45.0, supplierNote = "Первичный завоз"))
-        supplyDao.insertSupply(SupplyEntity(productId = id2, productName = p2.name, stockBefore = 0.0, quantityAdded = 60.0, stockAfter = 60.0, costPriceAtSupply = 40.0, supplierNote = "Первичный завоз"))
-        supplyDao.insertSupply(SupplyEntity(productId = id3, productName = p3.name, stockBefore = 0.0, quantityAdded = 25.0, stockAfter = 25.0, costPriceAtSupply = 90.0, supplierNote = "Свежая выпечка"))
+        // Add initial supply batch & intake logs
+        val demoBatch = SupplyBatchEntity(
+            supplierName = "ООО ГлавСнаб",
+            invoiceNumber = "ТН-001",
+            note = "Первичная закупка для открытия",
+            totalCostPrice = (50 * 45.0) + (60 * 40.0) + (25 * 90.0),
+            totalSellingPrice = (50 * 180.0) + (60 * 160.0) + (25 * 240.0),
+            totalQuantity = 135.0,
+            itemCount = 3
+        )
+        val batchId = supplyBatchDao.insertBatch(demoBatch)
+
+        supplyDao.insertSupply(SupplyEntity(batchId = batchId, productId = id1, productName = p1.name, stockBefore = 0.0, quantityAdded = 50.0, stockAfter = 50.0, costPriceAtSupply = 45.0, sellingPriceAtSupply = 180.0, supplierNote = "Первичный завоз"))
+        supplyDao.insertSupply(SupplyEntity(batchId = batchId, productId = id2, productName = p2.name, stockBefore = 0.0, quantityAdded = 60.0, stockAfter = 60.0, costPriceAtSupply = 40.0, sellingPriceAtSupply = 160.0, supplierNote = "Первичный завоз"))
+        supplyDao.insertSupply(SupplyEntity(batchId = batchId, productId = id3, productName = p3.name, stockBefore = 0.0, quantityAdded = 25.0, stockAfter = 25.0, costPriceAtSupply = 90.0, sellingPriceAtSupply = 240.0, supplierNote = "Свежая выпечка"))
 
         // Open shift #1 automatically if none is open
         openShift(initialCash = 3000.0)

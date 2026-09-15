@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import com.example.data.entity.CustomerEntity
 import com.example.data.entity.ProductEntity
 import com.example.data.entity.ShiftEntity
+import com.example.data.entity.SupplyBatchEntity
 import com.example.data.entity.SupplyEntity
 import com.example.data.entity.TransactionEntity
 import com.example.data.entity.TransactionItemEntity
@@ -15,17 +16,19 @@ import com.example.data.entity.TransactionItemEntity
     entities = [
         ProductEntity::class,
         SupplyEntity::class,
+        SupplyBatchEntity::class,
         ShiftEntity::class,
         TransactionEntity::class,
         TransactionItemEntity::class,
         CustomerEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun supplyDao(): SupplyDao
+    abstract fun supplyBatchDao(): SupplyBatchDao
     abstract fun shiftDao(): ShiftDao
     abstract fun transactionDao(): TransactionDao
     abstract fun customerDao(): CustomerDao
